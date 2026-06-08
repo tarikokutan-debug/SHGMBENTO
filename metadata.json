@@ -1,0 +1,8 @@
+{
+  "name": "SHGM Takip",
+  "description": "Cargo Slot Planning and SHGM Permit Tracking application with Google Sheets sync integration",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
