@@ -187,6 +187,7 @@ export default function App() {
   };
 
   const isSyncingRef = useRef(false);
+  const hasInitialPulledRef = useRef(false);
 
   // Load local state initially
   useEffect(() => {
@@ -311,7 +312,8 @@ export default function App() {
 
   // Background sync once database is loaded
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !hasInitialPulledRef.current) {
+      hasInitialPulledRef.current = true;
       handleGooglePull(true);
     }
   }, [isLoaded, handleGooglePull]);
