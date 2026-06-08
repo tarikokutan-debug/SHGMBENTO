@@ -127,8 +127,7 @@ function doGet(e) {
   ensureHeaders(sheet);
   var data = getSheetData(sheet);
   return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
@@ -157,8 +156,7 @@ function doPost(e) {
   }
   
   return ContentService.createTextOutput(JSON.stringify({ status: "success", count: rows.length }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function ensureHeaders(sheet) {

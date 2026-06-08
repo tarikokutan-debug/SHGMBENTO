@@ -170,9 +170,9 @@ export default function App() {
   const [googleAppsScriptUrl, setGoogleAppsScriptUrlState] = useState(() => {
     try {
       const saved = localStorage.getItem("shgm_google_apps_script_url_v3");
-      return saved || "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+      return saved || "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
     } catch {
-      return "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+      return "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
     }
   });
 
@@ -256,9 +256,12 @@ export default function App() {
       setLastSyncTime(now);
       localStorage.setItem("shgm_last_sync_v2", now.toISOString());
       setTimeout(() => setGoogleSyncStatus("idle"), 2500);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Pull hatasi:", err);
       setGoogleSyncStatus("error");
+      if (!isInitial) {
+        alert("Buluttan Veri Çekme Hatası:\n\n" + (err?.message || err));
+      }
       setTimeout(() => setGoogleSyncStatus("idle"), 4000);
     } finally {
       isSyncingRef.current = false;
@@ -275,9 +278,10 @@ export default function App() {
       setLastSyncTime(now);
       localStorage.setItem("shgm_last_sync_v2", now.toISOString());
       setTimeout(() => setGoogleSyncStatus("idle"), 2500);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Push hatasi:", err);
       setGoogleSyncStatus("error");
+      alert("Buluta Kaydetme Hatası:\n\n" + (err?.message || err));
       setTimeout(() => setGoogleSyncStatus("idle"), 4000);
     } finally {
       isSyncingRef.current = false;
@@ -301,9 +305,10 @@ export default function App() {
       setLastSyncTime(now);
       localStorage.setItem("shgm_last_sync_v2", now.toISOString());
       setTimeout(() => setGoogleSyncStatus("idle"), 2500);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Full Sync hatasi:", err);
       setGoogleSyncStatus("error");
+      alert("Çift Yönlü Eşitleme Hatası:\n\n" + (err?.message || err));
       setTimeout(() => setGoogleSyncStatus("idle"), 4000);
     } finally {
       isSyncingRef.current = false;

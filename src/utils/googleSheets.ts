@@ -25,7 +25,7 @@ export function getGoogleAppsScriptUrl(): string {
   } catch (e) {
     console.error("Failed to read shgm_google_apps_script_url_v3 from localStorage", e);
   }
-  return "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+  return "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
 }
 
 /**
@@ -58,12 +58,14 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
     isCsv = true;
   }
 
-  const response = await fetch(targetUrl, {
+  // To prevent CORS pre-flight or request headers issues (especially when redirected by Google),
+  // we do a simple fetch WITHOUT adding custom headers
+  const fetchOptions: RequestInit = {
     method: "GET",
-    headers: {
-      "Accept": isCsv ? "text/csv,text/plain,*/*" : "application/json",
-    },
-  });
+    redirect: "follow",
+  };
+
+  const response = await fetch(targetUrl, fetchOptions);
 
   if (!response.ok) {
     throw new Error(`Google Sheets fetch failed with status: ${response.status}`);
@@ -73,11 +75,30 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
     const csvText = await response.text();
     return parseCSVToFlights(csvText);
   } else {
-    const rawData = await response.json();
-    if (!Array.isArray(rawData)) {
-      throw new Error("Invalid response format: Google Sheets endpoint returned a non-array response.");
+    const rawText = await response.text();
+    
+    // Check if the response is actually an HTML page (Google Sign-In page redirect)
+    if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
+      throw new Error(
+        "Erişim Engellendi: Google Apps Script Web Uygulaması bir giriş sayfası (HTML) döndürdü. " +
+        "Lütfen Apps Script üzerinde 'Dağıt' > 'Yeni Dağıtım' yapılandırmasında 'Kimlerin erişimi var' alanını " +
+        "'Herkes' (Anyone) olarak seçtiğinizden ve gerekli tüm yetkileri onayladığınızdan emin olun."
+      );
     }
-    return mapRawDataToFlights(rawData);
+
+    try {
+      const rawData = JSON.parse(rawText);
+      if (!Array.isArray(rawData)) {
+        throw new Error("Geçersiz veri formatı: Google Sheets endpoint bir liste (JSON array) döndürmedi.");
+      }
+      return mapRawDataToFlights(rawData);
+    } catch (parseError: any) {
+      console.error("JSON parse error:", parseError, rawText);
+      throw new Error(
+        "Bağlantı/Ayrıştırma Hatası: Google Apps Script API'den alınan veri JSON formatında değil. " +
+        "Lütfen script kodunu kaydedip 'Yeni Dağıtım' (New Deployment) yaptığınızdan emin olun. Hata: " + parseError.message
+      );
+    }
   }
 }
 
