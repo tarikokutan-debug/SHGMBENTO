@@ -31,8 +31,12 @@ async function startServer() {
       });
 
       if (!response.ok) {
+        let errorMessage = `Google Sheets API hata döndürdü: ${response.status} ${response.statusText}`;
+        if (response.status === 404) {
+          errorMessage = "Girilen URL adresi veya Google Sheets kaynağı bulunamadı (404 Hatası). Lütfen girdiğiniz Google Sheets URL'sini kontrol edin.";
+        }
         return res.status(response.status).json({ 
-          error: `Google Sheets API returned an error: ${response.status} ${response.statusText}` 
+          error: errorMessage 
         });
       }
 
@@ -66,8 +70,12 @@ async function startServer() {
       });
 
       if (!response.ok) {
+        let errorMessage = `Google Apps Script hata döndürdü: ${response.status} ${response.statusText}`;
+        if (response.status === 404) {
+          errorMessage = "Google Apps Script Web Uygulaması bulunamadı (404 Hatası).\nHATA SEBEPLERİ:\n1. Girdiğiniz her iki adresten birinde yazım veya kopyalama hatası olabilir.\n2. Google Apps Script projesinde 'Dağıt' > 'Yeni Dağıtım' adımlarını izleyip türü 'Web Uygulaması' olarak belirlememiş ya da URL'yi yanlış kopyalamış olabilirsiniz.\n3. Apps Script kodunda hata veya yetkilendirme eksiği olabilir.";
+        }
         return res.status(response.status).json({ 
-          error: `Google Apps Script returned an error: ${response.status} ${response.statusText}` 
+          error: errorMessage 
         });
       }
 

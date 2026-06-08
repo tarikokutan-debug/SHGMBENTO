@@ -37,25 +37,44 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
   const appsScriptUrl = getGoogleAppsScriptUrl();
   const sheetsCsvUrl = getGoogleSheetsUrl();
 
-  // If we have a dynamic sheet URL that is a published CSV link, we fetch from it.
-  // Otherwise, fallback to the Apps Script endpoint.
+  // We check if the user has configured their own published Web CSV/Google Sheet URL.
+  // Pulling from the published CSV link is 100% reliable, super fast, and avoids Apps Script limits/permissions entirely.
+  const hasValidCsvUrl = sheetsCsvUrl && (
+    sheetsCsvUrl.includes("pub?output=csv") || 
+    sheetsCsvUrl.includes("output=csv") || 
+    sheetsCsvUrl.includes("docs.google.com/spreadsheets")
+  );
+
   let targetUrl = appsScriptUrl;
   let isCsv = false;
 
-  const isPrimaryCsvUrl = sheetsCsvUrl.includes("pub?output=csv") || sheetsCsvUrl.includes("output=csv") || sheetsCsvUrl.includes("docs.google.com/spreadsheets");
-  const isDefaultScriptUrl = appsScriptUrl.includes("AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow");
+  // Let's check if the Apps Script URL is the default/template one.
+  const isDefaultScriptUrl = appsScriptUrl.includes("AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow") || 
+                            appsScriptUrl.includes("AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw");
 
-  if (isPrimaryCsvUrl && (isDefaultScriptUrl || !appsScriptUrl)) {
+  // If we have a valid CSV URL and Apps Script is unconfigured or default, ALWAYS read via CSV
+  if (hasValidCsvUrl) {
     targetUrl = sheetsCsvUrl;
     isCsv = true;
-  } else if (sheetsCsvUrl && !appsScriptUrl) {
+  } else if (appsScriptUrl && appsScriptUrl.startsWith("https://script.google.com") && !isDefaultScriptUrl) {
+    targetUrl = appsScriptUrl;
+    isCsv = false;
+  } else if (sheetsCsvUrl) {
     targetUrl = sheetsCsvUrl;
     isCsv = true;
   }
 
-  // Double check if target URL has been overridden with a web published search link
-  if (targetUrl.includes("pub?output=csv") || targetUrl.includes("output=csv") || targetUrl.includes("docs.google.com/spreadsheets/d/e/")) {
-    isCsv = true;
+  // Ensure target CSV URL has ?output=csv
+  if (isCsv && targetUrl.includes("docs.google.com/spreadsheets") && !targetUrl.includes("output=")) {
+    if (targetUrl.includes("/pub") && !targetUrl.includes("output=csv")) {
+      if (targetUrl.endsWith("/")) {
+        targetUrl = targetUrl + "?output=csv";
+      } else if (!targetUrl.includes("?")) {
+        targetUrl = targetUrl + "?output=csv";
+      } else {
+        targetUrl = targetUrl + "&output=csv";
+      }
+    }
   }
 
   // We use our backend CORS-free proxy to pull the data reliably without browser restrictions
@@ -65,12 +84,18 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
   });
 
   if (!response.ok) {
+    let errMsg = `Uzak bağlantı hatası (Durum kodu: ${response.status})`;
     try {
       const errorJson = await response.json();
-      throw new Error(errorJson.error || `Sunducu hatası: ${response.status}`);
+      if (errorJson && errorJson.error) {
+        errMsg = errorJson.error;
+      }
     } catch {
-      throw new Error(`Google Sheets fetch failed with status: ${response.status}`);
+      if (response.status === 404) {
+        errMsg = "Google Sheets veya Apps Script kaynağı bulunamadı (404 Hatası). Lütfen Settings sayfasında girdiğiniz linkleri kontrol edin.";
+      }
     }
+    throw new Error(errMsg);
   }
 
   if (isCsv) {
@@ -111,8 +136,18 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
 export async function saveFlightsToSheet(flights: Flight[]): Promise<boolean> {
   const appsScriptUrl = getGoogleAppsScriptUrl();
   
-  if (!appsScriptUrl || !appsScriptUrl.startsWith("https://script.google.com")) {
-    throw new Error("Yazma Hatası: Bulut kaydı yapabilmek için lütfen Settings sekmesindeki yönergeleri izleyerek Google Apps Script URL'inizi tanımlayın.");
+  const isDefaultScriptUrl = !appsScriptUrl || 
+                            !appsScriptUrl.startsWith("https://script.google.com") ||
+                            appsScriptUrl.includes("AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw") ||
+                            appsScriptUrl.includes("AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow");
+
+  if (isDefaultScriptUrl) {
+    throw new Error(
+      "Yazma/Kaydetme Hatası: Google Sheets e-tablonuza veri yazabilmek için lütfen \n" +
+      "Settings > Veri ve Yedekleme sekmesindeki klavuz adımlarını izleyerek kendi adınıza " +
+      "ücretsiz bir Google Apps Script Web Uygulaması kurun ve linkini oraya yapıştırın.\n\n" +
+      "Varsayılan örnek script linklerine doğrudan yazma yetkisi verilemez."
+    );
   }
 
   const serializedData = flights.map((item) => ({
@@ -133,12 +168,18 @@ export async function saveFlightsToSheet(flights: Flight[]): Promise<boolean> {
   });
 
   if (!response.ok) {
+    let errMsg = `Google Sheets kayıt hatası (Durum kodu: ${response.status})`;
     try {
       const errorJson = await response.json();
-      throw new Error(errorJson.error || `Sunucu hatası: ${response.status}`);
+      if (errorJson && errorJson.error) {
+        errMsg = errorJson.error;
+      }
     } catch {
-      throw new Error(`Google Sheets save failed with status: ${response.status}`);
+      if (response.status === 404) {
+        errMsg = "Yazma Başarısız: Google Apps Script Web Uygulama URL'niz bulunamadı (404 Hatası).\nLütfen Settings sayfasındaki URL bağlantısını ve dağıtımı kontrol edin.";
+      }
     }
+    throw new Error(errMsg);
   }
 
   return true;
