@@ -58,17 +58,19 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
     isCsv = true;
   }
 
-  // To prevent CORS pre-flight or request headers issues (especially when redirected by Google),
-  // we do a simple fetch WITHOUT adding custom headers
-  const fetchOptions: RequestInit = {
-    method: "GET",
-    redirect: "follow",
-  };
-
-  const response = await fetch(targetUrl, fetchOptions);
+  // We use our backend CORS-free proxy to pull the data reliably without browser restrictions
+  const proxyUrl = `/api/google-pull?url=${encodeURIComponent(targetUrl)}`;
+  const response = await fetch(proxyUrl, {
+    method: "GET"
+  });
 
   if (!response.ok) {
-    throw new Error(`Google Sheets fetch failed with status: ${response.status}`);
+    try {
+      const errorJson = await response.json();
+      throw new Error(errorJson.error || `Sunducu hatası: ${response.status}`);
+    } catch {
+      throw new Error(`Google Sheets fetch failed with status: ${response.status}`);
+    }
   }
 
   if (isCsv) {
@@ -118,19 +120,25 @@ export async function saveFlightsToSheet(flights: Flight[]): Promise<boolean> {
     timestamps: JSON.stringify(item.timestamps || {}),
   }));
 
-  // Using text/plain content type to bypass CORS OPTIONS preflight check
-  // on Google Apps Script while still sending standard stringified JSON in body.
-  const response = await fetch(appsScriptUrl, {
+  // We use our backend CORS-free proxy to push the data reliably without browser restrictions
+  const response = await fetch("/api/google-push", {
     method: "POST",
     headers: {
-      "Content-Type": "text/plain;charset=utf-8",
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(serializedData),
-    redirect: "follow",
+    body: JSON.stringify({
+      url: appsScriptUrl,
+      data: serializedData
+    }),
   });
 
   if (!response.ok) {
-    throw new Error(`Google Sheets save failed with status: ${response.status}`);
+    try {
+      const errorJson = await response.json();
+      throw new Error(errorJson.error || `Sunucu hatası: ${response.status}`);
+    } catch {
+      throw new Error(`Google Sheets save failed with status: ${response.status}`);
+    }
   }
 
   return true;
