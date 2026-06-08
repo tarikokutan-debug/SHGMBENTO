@@ -14,6 +14,7 @@ import {
   Copy,
   Check
 } from "lucide-react";
+import { sanitizeGoogleSheetsUrl, sanitizeGoogleAppsScriptUrl } from "../utils/googleSheets";
 
 interface SettingsViewProps {
   settingsTab: "EMAILS" | "FEES" | "DATA";
@@ -394,6 +395,7 @@ function getSheetData(sheet) {
                   type="text"
                   value={googleSheetsUrl}
                   onChange={(e) => setGoogleSheetsUrl(e.target.value)}
+                  onBlur={(e) => setGoogleSheetsUrl(sanitizeGoogleSheetsUrl(e.target.value))}
                   placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
                   className="w-full px-4 py-2.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none text-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                 />
@@ -410,6 +412,7 @@ function getSheetData(sheet) {
                   type="text"
                   value={googleAppsScriptUrl}
                   onChange={(e) => setGoogleAppsScriptUrl(e.target.value)}
+                  onBlur={(e) => setGoogleAppsScriptUrl(sanitizeGoogleAppsScriptUrl(e.target.value))}
                   placeholder="https://script.google.com/macros/s/.../exec"
                   className="w-full px-4 py-2.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none text-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                 />

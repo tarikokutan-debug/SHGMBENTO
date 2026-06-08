@@ -1,13 +1,102 @@
 import { Flight } from "../types";
 
 /**
+ * Sanitizes and repairs a Google Sheet URL that might be truncated or partially copied.
+ */
+export function sanitizeGoogleSheetsUrl(url: string): string {
+  if (!url) return "";
+  let clean = url.trim();
+
+  // If it's a published Google Sheet ID
+  if (clean.includes("2PACX-")) {
+    const match = clean.match(/2PACX-[a-zA-Z0-9_-]+/);
+    if (match) {
+      const id = match[0];
+      return `https://docs.google.com/spreadsheets/d/e/${id}/pub?output=csv`;
+    }
+  }
+
+  // If it's a regular Google Sheet (not published, but viewable)
+  const regularIdMatch = clean.match(/\/d\/([a-zA-Z0-9_-]{40,})/);
+  if (regularIdMatch) {
+    const id = regularIdMatch[1];
+    return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
+  }
+
+  // Prepend missing starts
+  if (clean.startsWith("eets/d/")) {
+    clean = "https://docs.google.com/spreadsh" + clean;
+  } else if (clean.startsWith("readsheets/d/")) {
+    clean = "https://docs.google.com/sp" + clean;
+  } else if (clean.startsWith("spreadsheets/d/")) {
+    clean = "https://docs.google.com/" + clean;
+  } else if (clean.startsWith("docs.google.com/")) {
+    clean = "https://" + clean;
+  }
+
+  // If it doesn't start with http, but has docs.google.com inside:
+  if (!clean.startsWith("http") && clean.includes("docs.google.com")) {
+    clean = "https://" + clean;
+  }
+
+  // Ensure output=csv or format=csv is correctly formatted
+  if (clean.includes("docs.google.com/spreadsheets")) {
+    if (!clean.includes("output=") && !clean.includes("format=")) {
+      if (clean.includes("/pub")) {
+        if (clean.endsWith("/")) {
+          clean = clean + "?output=csv";
+        } else if (!clean.includes("?")) {
+          clean = clean + "?output=csv";
+        } else {
+          clean = clean + "&output=csv";
+        }
+      } else if (clean.includes("/d/")) {
+        const match = clean.match(/(https:\/\/docs\.google\.com\/spreadsheets\/d\/[a-zA-Z0-9_-]+)/);
+        if (match) {
+          clean = match[1] + "/export?format=csv";
+        }
+      }
+    }
+  }
+
+  return clean;
+}
+
+/**
+ * Sanitizes and repairs a Google Apps Script Web App URL that might be truncated or partially copied.
+ */
+export function sanitizeGoogleAppsScriptUrl(url: string): string {
+  if (!url) return "";
+  let clean = url.trim();
+
+  // Extract Apps Script macro ID if present (starts with AKfycb)
+  if (clean.includes("AKfycb")) {
+    const match = clean.match(/AKfycb[a-zA-Z0-9_-]+/);
+    if (match) {
+      const id = match[0];
+      return `https://script.google.com/macros/s/${id}/exec`;
+    }
+  }
+
+  if (clean.startsWith("s://script.google.com")) {
+    clean = "http" + clean;
+  } else if (clean.startsWith("://script.google.com")) {
+    clean = "https" + clean;
+  } else if (clean.startsWith("script.google.com")) {
+    clean = "https://" + clean;
+  }
+
+  return clean;
+}
+
+/**
  * Gets the current Google Sheets direct URL (e.g., CSV published link).
  * Defaults to the user's specific spreadsheet link.
  */
 export function getGoogleSheetsUrl(): string {
   try {
     const saved = localStorage.getItem("shgm_google_sheets_url_v3");
-    if (saved) return saved.trim();
+    if (saved) return sanitizeGoogleSheetsUrl(saved);
   } catch (e) {
     console.error("Failed to read shgm_google_sheets_url_v3 from localStorage", e);
   }
@@ -21,7 +110,7 @@ export function getGoogleSheetsUrl(): string {
 export function getGoogleAppsScriptUrl(): string {
   try {
     const saved = localStorage.getItem("shgm_google_apps_script_url_v3");
-    if (saved) return saved.trim();
+    if (saved) return sanitizeGoogleAppsScriptUrl(saved);
   } catch (e) {
     console.error("Failed to read shgm_google_apps_script_url_v3 from localStorage", e);
   }

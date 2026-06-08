@@ -61,6 +61,8 @@ import {
   fetchFlightsFromSheet,
   saveFlightsToSheet,
   mergeFlights,
+  sanitizeGoogleSheetsUrl,
+  sanitizeGoogleAppsScriptUrl,
 } from "./utils/googleSheets";
 
 // Sub-components
@@ -161,7 +163,7 @@ export default function App() {
   const [googleSheetsUrl, setGoogleSheetsUrlState] = useState(() => {
     try {
       const saved = localStorage.getItem("shgm_google_sheets_url_v3");
-      return saved || "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
+      return saved ? sanitizeGoogleSheetsUrl(saved) : "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
     } catch {
       return "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
     }
@@ -170,20 +172,22 @@ export default function App() {
   const [googleAppsScriptUrl, setGoogleAppsScriptUrlState] = useState(() => {
     try {
       const saved = localStorage.getItem("shgm_google_apps_script_url_v3");
-      return saved || "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
+      return saved ? sanitizeGoogleAppsScriptUrl(saved) : "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
     } catch {
       return "https://script.google.com/macros/s/AKfycbxHqFPpnQ-gV8ZKJRppvua_gIDYq2GBxGSHRd2q_1AQPv0CB_rMIIMYq56gfPm3NLeyuw/exec";
     }
   });
 
   const setGoogleSheetsUrl = (url: string) => {
-    setGoogleSheetsUrlState(url);
-    localStorage.setItem("shgm_google_sheets_url_v3", url);
+    const sanitized = sanitizeGoogleSheetsUrl(url);
+    setGoogleSheetsUrlState(sanitized || url);
+    localStorage.setItem("shgm_google_sheets_url_v3", sanitized || url);
   };
 
   const setGoogleAppsScriptUrl = (url: string) => {
-    setGoogleAppsScriptUrlState(url);
-    localStorage.setItem("shgm_google_apps_script_url_v3", url);
+    const sanitized = sanitizeGoogleAppsScriptUrl(url);
+    setGoogleAppsScriptUrlState(sanitized || url);
+    localStorage.setItem("shgm_google_apps_script_url_v3", sanitized || url);
   };
 
   const isSyncingRef = useRef(false);
