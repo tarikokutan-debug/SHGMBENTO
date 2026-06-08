@@ -1,15 +1,67 @@
 import { Flight } from "../types";
 
-export const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+/**
+ * Gets the current Google Sheets direct URL (e.g., CSV published link).
+ * Defaults to the user's specific spreadsheet link.
+ */
+export function getGoogleSheetsUrl(): string {
+  try {
+    const saved = localStorage.getItem("shgm_google_sheets_url_v3");
+    if (saved) return saved.trim();
+  } catch (e) {
+    console.error("Failed to read shgm_google_sheets_url_v3 from localStorage", e);
+  }
+  return "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
+}
 
 /**
- * Fetches all flight rows from the custom Google Sheets API endpoint.
+ * Gets the Google Apps Script Web App API endpoint.
+ * This can be deployed by the user to enable full read/write capabilities and dynamic headers creation.
+ */
+export function getGoogleAppsScriptUrl(): string {
+  try {
+    const saved = localStorage.getItem("shgm_google_apps_script_url_v3");
+    if (saved) return saved.trim();
+  } catch (e) {
+    console.error("Failed to read shgm_google_apps_script_url_v3 from localStorage", e);
+  }
+  return "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+}
+
+/**
+ * Fetches all flight rows from the active Google Sheets source.
+ * Dynamically switches between Google Sheet Published CSV download (GET text) 
+ * and Google Apps Script JSON endpoint (GET JSON) depending on the configuration.
  */
 export async function fetchFlightsFromSheet(): Promise<Flight[]> {
-  const response = await fetch(GOOGLE_SHEETS_API_URL, {
+  const appsScriptUrl = getGoogleAppsScriptUrl();
+  const sheetsCsvUrl = getGoogleSheetsUrl();
+
+  // If we have a dynamic sheet URL that is a published CSV link, we fetch from it.
+  // Otherwise, fallback to the Apps Script endpoint.
+  let targetUrl = appsScriptUrl;
+  let isCsv = false;
+
+  const isPrimaryCsvUrl = sheetsCsvUrl.includes("pub?output=csv") || sheetsCsvUrl.includes("output=csv") || sheetsCsvUrl.includes("docs.google.com/spreadsheets");
+  const isDefaultScriptUrl = appsScriptUrl.includes("AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow");
+
+  if (isPrimaryCsvUrl && (isDefaultScriptUrl || !appsScriptUrl)) {
+    targetUrl = sheetsCsvUrl;
+    isCsv = true;
+  } else if (sheetsCsvUrl && !appsScriptUrl) {
+    targetUrl = sheetsCsvUrl;
+    isCsv = true;
+  }
+
+  // Double check if target URL has been overridden with a web published search link
+  if (targetUrl.includes("pub?output=csv") || targetUrl.includes("output=csv") || targetUrl.includes("docs.google.com/spreadsheets/d/e/")) {
+    isCsv = true;
+  }
+
+  const response = await fetch(targetUrl, {
     method: "GET",
     headers: {
-      "Accept": "application/json",
+      "Accept": isCsv ? "text/csv,text/plain,*/*" : "application/json",
     },
   });
 
@@ -17,62 +69,37 @@ export async function fetchFlightsFromSheet(): Promise<Flight[]> {
     throw new Error(`Google Sheets fetch failed with status: ${response.status}`);
   }
 
-  const rawData = await response.json();
-  if (!Array.isArray(rawData)) {
-    throw new Error("Invalid response format: Google Sheets endpoint returned a non-array response.");
-  }
-
-  // Normalize flight entries retrieved from the sheet cells.
-  return rawData.map((item: any) => {
-    let parsedTimestamps = {};
-    if (item.timestamps) {
-      if (typeof item.timestamps === "string" && item.timestamps.trim()) {
-        try {
-          parsedTimestamps = JSON.parse(item.timestamps);
-        } catch (e) {
-          console.warn("Could not parse timestamps string column:", item.timestamps, e);
-        }
-      } else if (typeof item.timestamps === "object") {
-        parsedTimestamps = item.timestamps;
-      }
+  if (isCsv) {
+    const csvText = await response.text();
+    return parseCSVToFlights(csvText);
+  } else {
+    const rawData = await response.json();
+    if (!Array.isArray(rawData)) {
+      throw new Error("Invalid response format: Google Sheets endpoint returned a non-array response.");
     }
-
-    return {
-      id: item.id ? (typeof item.id === "string" && !isNaN(Number(item.id)) ? Number(item.id) : item.id) : Date.now(),
-      al: String(item.al || "TK").toUpperCase(),
-      flNo: String(item.flNo || ""),
-      date: item.date || "",
-      day: item.day || "",
-      orig: String(item.orig || "IST").toUpperCase(),
-      dest: String(item.dest || "").toUpperCase(),
-      std: item.std || "",
-      sta: item.sta || "",
-      status: item.status || "PENDING",
-      appType: item.appType || "yeniPermi",
-      aftnNo: item.aftnNo || "",
-      awbNo: item.awbNo || "",
-      isDg: item.isDg === true || item.isDg === "true" || item.isDg === "TRUE" || item.isDg === 1,
-      cancelled: item.cancelled === true || item.cancelled === "true" || item.cancelled === "TRUE" || item.cancelled === 1,
-      isBulk: item.isBulk === true || item.isBulk === "true" || item.isBulk === "TRUE" || item.isBulk === 1,
-      bulkId: item.bulkId || "",
-      timestamps: parsedTimestamps,
-    } as Flight;
-  });
+    return mapRawDataToFlights(rawData);
+  }
 }
 
 /**
- * Saves the entire list of flights to the custom Google Sheets API endpoint.
- * Serializes nested objects (like timestamps) to cell-friendly stringified formats.
+ * Saves the entire list of flights to the Google Sheets source.
+ * Requires a Google Apps Script URL since published CSVs are read-only.
  */
 export async function saveFlightsToSheet(flights: Flight[]): Promise<boolean> {
+  const appsScriptUrl = getGoogleAppsScriptUrl();
+  
+  if (!appsScriptUrl || !appsScriptUrl.startsWith("https://script.google.com")) {
+    throw new Error("Yazma Hatası: Bulut kaydı yapabilmek için lütfen Settings sekmesindeki yönergeleri izleyerek Google Apps Script URL'inizi tanımlayın.");
+  }
+
   const serializedData = flights.map((item) => ({
     ...item,
     timestamps: JSON.stringify(item.timestamps || {}),
   }));
 
-  // Using text/plain content type to bypass CORS OPTIONS preflight block 
+  // Using text/plain content type to bypass CORS OPTIONS preflight check
   // on Google Apps Script while still sending standard stringified JSON in body.
-  const response = await fetch(GOOGLE_SHEETS_API_URL, {
+  const response = await fetch(appsScriptUrl, {
     method: "POST",
     headers: {
       "Content-Type": "text/plain;charset=utf-8",
@@ -143,5 +170,128 @@ export function mergeFlights(local: Flight[], remote: Flight[]): Flight[] {
     const aTime = a.id && typeof a.id === "number" ? a.id : 0;
     const bTime = b.id && typeof b.id === "number" ? b.id : 0;
     return bTime - aTime;
+  });
+}
+
+/**
+ * Robust zero-dependency client-side CSV parser.
+ * Maps field headers dynamically.
+ */
+export function parseCSVToFlights(csvText: string): Flight[] {
+  const lines = csvText.split(/\r?\n/);
+  if (lines.length <= 1) return [];
+
+  const headers = parseCSVLine(lines[0]);
+  const result: Flight[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const values = parseCSVLine(line);
+    const item: any = {};
+    headers.forEach((h, idx) => {
+      const cleanHeader = h.trim();
+      const val = values[idx] !== undefined ? values[idx] : "";
+      item[cleanHeader] = val;
+    });
+
+    if (!item.id && !item.flNo) continue; // Skip empty rows
+
+    let parsedTimestamps = {};
+    if (item.timestamps) {
+      if (typeof item.timestamps === "string" && item.timestamps.trim()) {
+        try {
+          parsedTimestamps = JSON.parse(item.timestamps);
+        } catch (e) {
+          console.warn("Could not parse timestamps string column:", item.timestamps, e);
+        }
+      } else if (typeof item.timestamps === "object") {
+        parsedTimestamps = item.timestamps;
+      }
+    }
+
+    result.push({
+      id: item.id ? (typeof item.id === "string" && !isNaN(Number(item.id)) ? Number(item.id) : item.id) : Date.now() + i,
+      al: String(item.al || "TK").toUpperCase(),
+      flNo: String(item.flNo || ""),
+      date: item.date || "",
+      day: item.day || "",
+      orig: String(item.orig || "IST").toUpperCase(),
+      dest: String(item.dest || "").toUpperCase(),
+      std: item.std || "",
+      sta: item.sta || "",
+      status: item.status || "PENDING",
+      appType: item.appType || "yeniPermi",
+      aftnNo: item.aftnNo || "",
+      awbNo: item.awbNo || "",
+      isDg: item.isDg === true || item.isDg === "true" || item.isDg === "TRUE" || item.isDg === "1" || item.isDg === 1,
+      cancelled: item.cancelled === true || item.cancelled === "true" || item.cancelled === "TRUE" || item.cancelled === "1" || item.cancelled === 1,
+      isBulk: item.isBulk === true || item.isBulk === "true" || item.isBulk === "TRUE" || item.isBulk === "1" || item.isBulk === 1,
+      bulkId: item.bulkId || "",
+      timestamps: parsedTimestamps,
+    } as Flight);
+  }
+
+  return result;
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result.map(v => v.replace(/^"|"$/g, '').trim());
+}
+
+/**
+ * Standard mapper for Raw JSON database arrays retrieved through Apps Script.
+ */
+function mapRawDataToFlights(rawData: any[]): Flight[] {
+  return rawData.map((item: any) => {
+    let parsedTimestamps = {};
+    if (item.timestamps) {
+      if (typeof item.timestamps === "string" && item.timestamps.trim()) {
+        try {
+          parsedTimestamps = JSON.parse(item.timestamps);
+        } catch (e) {
+          console.warn("Could not parse timestamps string column:", item.timestamps, e);
+        }
+      } else if (typeof item.timestamps === "object") {
+        parsedTimestamps = item.timestamps;
+      }
+    }
+
+    return {
+      id: item.id ? (typeof item.id === "string" && !isNaN(Number(item.id)) ? Number(item.id) : item.id) : Date.now(),
+      al: String(item.al || "TK").toUpperCase(),
+      flNo: String(item.flNo || ""),
+      date: item.date || "",
+      day: item.day || "",
+      orig: String(item.orig || "IST").toUpperCase(),
+      dest: String(item.dest || "").toUpperCase(),
+      std: item.std || "",
+      sta: item.sta || "",
+      status: item.status || "PENDING",
+      appType: item.appType || "yeniPermi",
+      aftnNo: item.aftnNo || "",
+      awbNo: item.awbNo || "",
+      isDg: item.isDg === true || item.isDg === "true" || item.isDg === "TRUE" || item.isDg === 1,
+      cancelled: item.cancelled === true || item.cancelled === "true" || item.cancelled === "TRUE" || item.cancelled === 1,
+      isBulk: item.isBulk === true || item.isBulk === "true" || item.isBulk === "TRUE" || item.isBulk === 1,
+      bulkId: item.bulkId || "",
+      timestamps: parsedTimestamps,
+    } as Flight;
   });
 }

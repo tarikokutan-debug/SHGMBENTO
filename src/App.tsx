@@ -158,6 +158,34 @@ export default function App() {
     }
   });
 
+  const [googleSheetsUrl, setGoogleSheetsUrlState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("shgm_google_sheets_url_v3");
+      return saved || "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
+    } catch {
+      return "https://docs.google.com/spreadsheets/d/e/2PACX-1vSsrz179DIUtkLA4LpvlAlcReGW-HiPrOiQXnLhmRMUB9cNkSFORp7SwdwSWB-NVWmRcv5bVtPACCTP/pub?output=csv";
+    }
+  });
+
+  const [googleAppsScriptUrl, setGoogleAppsScriptUrlState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("shgm_google_apps_script_url_v3");
+      return saved || "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+    } catch {
+      return "https://script.google.com/macros/s/AKfycbzFD4e-j4SeQozz9K50rndtpLd26EY-tZQsD8VEE1Wvg0bjsoGcWzLO8eyfNoDoqQReow/exec";
+    }
+  });
+
+  const setGoogleSheetsUrl = (url: string) => {
+    setGoogleSheetsUrlState(url);
+    localStorage.setItem("shgm_google_sheets_url_v3", url);
+  };
+
+  const setGoogleAppsScriptUrl = (url: string) => {
+    setGoogleAppsScriptUrlState(url);
+    localStorage.setItem("shgm_google_apps_script_url_v3", url);
+  };
+
   const isSyncingRef = useRef(false);
 
   // Load local state initially
@@ -1852,6 +1880,10 @@ export default function App() {
             importFromJson={importFromJson}
             clearAllData={clearAllData}
             
+            googleSheetsUrl={googleSheetsUrl}
+            setGoogleSheetsUrl={setGoogleSheetsUrl}
+            googleAppsScriptUrl={googleAppsScriptUrl}
+            setGoogleAppsScriptUrl={setGoogleAppsScriptUrl}
             googleSyncStatus={googleSyncStatus}
             lastSyncTime={lastSyncTime}
             autoSyncEnabled={autoSyncEnabled}
