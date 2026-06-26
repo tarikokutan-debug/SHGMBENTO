@@ -69,8 +69,69 @@ import EditGroupModal from "./components/EditGroupModal";
 import ReportingView from "./components/ReportingView";
 import SettingsView from "./components/SettingsView";
 
+
+// Helper functions for persisting showSaveFilePicker's folder reference
+const saveHandleToIDB = (handle: any): Promise<void> => {
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const request = indexedDB.open("shgm_file_handle_db", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("file_handles")) {
+          db.createObjectStore("file_handles");
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction("file_handles", "readwrite");
+          const store = tx.objectStore("file_handles");
+          store.put(handle, "last_backup_handle");
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      request.onerror = () => reject(request.error);
+    } catch (e) {
+      reject(e);
+    }
+  });
+};
+
+const getHandleFromIDB = (): Promise<any | null> => {
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open("shgm_file_handle_db", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("file_handles")) {
+          db.createObjectStore("file_handles");
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction("file_handles", "readonly");
+          const store = tx.objectStore("file_handles");
+          const getReq = store.get("last_backup_handle");
+          getReq.onsuccess = () => resolve(getReq.result || null);
+          getReq.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+};
+
 export default function App() {
   const [flights, setFlights] = useState<Flight[]>(INITIAL_FLIGHTS);
+  const [lastFileHandle, setLastFileHandle] = useState<any>(null);
   const [stationEmails, setStationEmails] = useState<StationEmails>(INITIAL_EMAILS);
   const [appFees, setAppFees] = useState<AppFees>(INITIAL_FEES);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -235,6 +296,11 @@ export default function App() {
     } catch (e) {
       console.error("Yukleme hatasi", e);
     }
+    getHandleFromIDB().then((handle) => {
+      if (handle) {
+        setLastFileHandle(handle);
+      }
+    }).catch((err) => console.warn("IndexDB handle loading issue:", err));
     setIsLoaded(true);
   }, []);
 
@@ -303,9 +369,8 @@ export default function App() {
 
       if ("showSaveFilePicker" in window) {
         try {
-          const handle = await (window as any).showSaveFilePicker({
+          const pickerOptions: any = {
             suggestedName: filename,
-            startIn: "downloads",
             types: [
               {
                 description: "JSON Yedek Dosyası",
@@ -314,10 +379,22 @@ export default function App() {
                 },
               },
             ],
-          });
+          };
+
+          if (lastFileHandle) {
+            pickerOptions.startIn = lastFileHandle;
+          } else {
+            pickerOptions.startIn = "downloads";
+          }
+
+          const handle = await (window as any).showSaveFilePicker(pickerOptions);
           const writable = await handle.createWritable();
           await writable.write(blob);
           await writable.close();
+          
+          setLastFileHandle(handle);
+          saveHandleToIDB(handle).catch((err) => console.warn("IndexDB save handle error:", err));
+
           addBackupLog("MANUAL", "SUCCESS", `Farklı kaydet ile başarıyla yedeklendi: ${handle.name} (${flights.length} uçuş)`);
           return;
         } catch (err: any) {
@@ -341,7 +418,7 @@ export default function App() {
     } catch (err: any) {
       addBackupLog("MANUAL", "ERROR", `Yedek indirilirken hata oluştu: ${err.message || err}`);
     }
-  }, [flights, addBackupLog]);
+  }, [flights, lastFileHandle, addBackupLog]);
 
   const importFromJson = useCallback((file: File) => {
     const r = new FileReader();
