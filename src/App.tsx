@@ -1136,9 +1136,14 @@ export default function App() {
         const minDaysB = daysArrB.length > 0 ? Math.min(...daysArrB) : 999;
         return minDaysA - minDaysB;
       }
+      const seqA = archivedSeqNumbers[a.groupId] || 0;
+      const seqB = archivedSeqNumbers[b.groupId] || 0;
+      if (seqA !== 0 || seqB !== 0) {
+        return seqB - seqA;
+      }
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
-  }, [flights, operationsTab, statusFilter, destFilter, searchTerm, dateFilter, currentDate]);
+  }, [flights, operationsTab, statusFilter, destFilter, searchTerm, dateFilter, currentDate, archivedSeqNumbers]);
 
   const homePendingGroups = useMemo(() => {
     const groups: Record<string, any> = {};
