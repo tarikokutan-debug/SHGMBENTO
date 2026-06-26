@@ -45,9 +45,34 @@ export const parseDDMMYYYY = (dateStr: string): Date => {
   const cleanDate = getCleanStartDate(dateStr);
   const parts = cleanDate.split(".");
   if (parts.length === 3) {
-    return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]), 0, 0, 0);
+    const d = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const y = Number(parts[2]);
+    if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+      return new Date(y, m, d, 0, 0, 0);
+    }
   }
-  return new Date();
+  return new Date(1900, 0, 1);
+};
+
+export const getCleanEndDate = (dateStr: string): string => {
+  if (!dateStr) return "";
+  const parts = String(dateStr).split(" - ");
+  return parts[parts.length - 1].trim();
+};
+
+export const parseEndDateDDMMYYYY = (dateStr: string): Date => {
+  const cleanDate = getCleanEndDate(dateStr);
+  const parts = cleanDate.split(".");
+  if (parts.length === 3) {
+    const d = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const y = Number(parts[2]);
+    if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+      return new Date(y, m, d, 0, 0, 0);
+    }
+  }
+  return new Date(1900, 0, 1);
 };
 
 export const calculateDaysLeft = (dateStr: string, currentRefDate: Date): number => {

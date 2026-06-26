@@ -57,6 +57,8 @@ import {
   formatForMail,
   formatTimestamp,
   parseFlightRow,
+  parseDDMMYYYY,
+  parseEndDateDDMMYYYY,
 } from "./utils/helpers";
 // Google Sheets features removed as requested by the airline team
 
@@ -890,8 +892,9 @@ export default function App() {
     maxDate.setDate(today.getDate() + daysToAdd);
     const pendingFlights = flights.filter((f) => f && f.status === "APP_MADE" && !f.cancelled);
     const devirFlights = pendingFlights.filter((f) => {
-      const fDate = parseDDMMYYYY(f.date);
-      return fDate >= today && fDate <= maxDate;
+      const startDate = parseDDMMYYYY(f.date);
+      const endDate = parseEndDateDDMMYYYY(f.date);
+      return startDate <= maxDate && endDate >= today;
     });
     const groups: Record<string, Flight[]> = {};
     devirFlights.forEach((f) => {
@@ -901,14 +904,6 @@ export default function App() {
     });
     return groups;
   }, [flights, currentDate]);
-
-  const parseDDMMYYYY = (dateStr: string): Date => {
-    const parts = dateStr.split(".");
-    if (parts.length === 3) {
-      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]), 0, 0, 0);
-    }
-    return new Date();
-  };
 
   const devirGroupData = useMemo(() => getDevirGroups(), [getDevirGroups]);
 
@@ -1288,8 +1283,8 @@ export default function App() {
             const isNext = curIdx === stepIdx - 1;
             const isCurrentPending = curIdx === stepIdx;
             let btnStyle = "bg-white border-2 border-zinc-900 text-zinc-400";
-            if (isComp) btnStyle = "bg-amber-300 border-2 border-zinc-900 text-zinc-950 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]";
-            else if (isNext) btnStyle = "bg-rose-400 border-2 border-zinc-950 text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] scale-110";
+            if (isComp) btnStyle = "bg-[#C8102E] border-2 border-zinc-900 text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]";
+            else if (isNext) btnStyle = "bg-zinc-900 border-2 border-zinc-950 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] scale-110";
             return (
               <div key={step.key} className="relative flex justify-center group/btn">
                 <span className="absolute -top-10 opacity-0 group-hover/btn:opacity-100 transition-opacity bg-zinc-900 text-white text-[9px] font-mono uppercase font-bold tracking-wider px-2 py-1 rounded-md border border-zinc-800 whitespace-nowrap pointer-events-none z-20 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
@@ -1303,7 +1298,7 @@ export default function App() {
                     !isNext && !isComp && !isCurrentPending ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:scale-105 active:scale-95"
                   }`}
                 >
-                  {isComp ? <Check size={14} strokeWidth={3} className="text-zinc-950" /> : <step.icon size={12} strokeWidth={2.5} />}
+                  {isComp ? <Check size={14} strokeWidth={3} className="text-white" /> : <step.icon size={12} strokeWidth={2.5} />}
                 </button>
               </div>
             );
@@ -1418,7 +1413,7 @@ export default function App() {
               <div className="flex flex-wrap gap-3 w-full md:w-auto">
                 <button
                   onClick={() => setIsDevirModalOpen(true)}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-300 hover:bg-amber-400 text-zinc-900 border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all cursor-pointer whitespace-nowrap font-bold"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all cursor-pointer whitespace-nowrap font-bold"
                 >
                   <BellRing size={16} /> DEVİR MAİLİ HAZIRLA
                 </button>

@@ -111,8 +111,8 @@ export default function ReportingView({
               const hPct = (bar.value / maxVal) * 100;
               return (
                 <div key={idx} className="flex flex-col items-center flex-1 group/bar relative h-full justify-end mx-1">
-                  <div className="absolute -top-12 text-[10px] font-mono font-black text-zinc-950 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-amber-200 px-2 py-1.5 border-2 border-zinc-900 rounded-md whitespace-nowrap z-10 text-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    {bar.value} ad.<br /><span className="text-zinc-900">{bar.cost.toLocaleString('tr-TR')} TL</span>
+                  <div className="absolute -top-12 text-[10px] font-mono font-black text-zinc-950 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-white px-2 py-1.5 border-2 border-zinc-900 rounded-md whitespace-nowrap z-10 text-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    {bar.value} ad.<br /><span className="text-zinc-550">{bar.cost.toLocaleString('tr-TR')} TL</span>
                   </div>
                   <div 
                     style={{ height: `${Math.max(hPct, 8)}%` }} 
@@ -197,9 +197,9 @@ export default function ReportingView({
                   <div key={i} className="flex flex-col items-center flex-1 group/wd relative h-full justify-end mx-1">
                     <div 
                       style={{ height: `${Math.max(barH, 8)}%` }} 
-                      className="w-full bg-amber-300 hover:bg-amber-400 border-2 border-zinc-900 rounded-t-lg transition-all max-w-[64px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center pt-2 cursor-pointer"
+                      className="w-full bg-[#C8102E] hover:bg-red-700 border-2 border-zinc-900 rounded-t-lg transition-all max-w-[64px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center pt-2 cursor-pointer"
                     >
-                      {wd.value > 0 && <span className="text-zinc-950 text-xs font-black font-mono">{wd.value}</span>}
+                      {wd.value > 0 && <span className="text-white text-xs font-black font-mono">{wd.value}</span>}
                     </div>
                     <span className="text-xs font-bold text-zinc-600 mt-3 font-mono uppercase text-[9px] tracking-wider">{wd.label}</span>
                   </div>
