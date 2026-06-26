@@ -1379,6 +1379,52 @@ export default function App() {
     ].filter((x) => x.value > 0);
   }, [flights]);
 
+  const aftnTypeDistribution = useMemo(() => {
+    const dist: Record<string, { count: number; cost: number; label: string }> = {
+      yeniPermi: { count: 0, cost: 0, label: "Yeni Permi / İlave" },
+      permiDegisiklik: { count: 0, cost: 0, label: "Permide Değişiklik" },
+      ilaveCharter: { count: 0, cost: 0, label: "İlave Charter" },
+      charterDegisiklik: { count: 0, cost: 0, label: "Charter Değişiklik" },
+    };
+
+    const aftnMap = new Map<string, { type: string; year: string }>();
+    const allPricedFlights = flights.filter((f) => f && (f.status === "APPROVED" || f.status === "REJECTED") && !f.cancelled);
+
+    allPricedFlights.forEach((f) => {
+      const type = f.appType || "yeniPermi";
+      const year = f.timestamps?.APP_MADE ? new Date(f.timestamps.APP_MADE).getFullYear().toString() : new Date().getFullYear().toString();
+      if (f.aftnNo && String(f.aftnNo).trim() !== "") {
+        const aftn = String(f.aftnNo).trim().toUpperCase();
+        if (!aftnMap.has(aftn)) {
+          aftnMap.set(aftn, { type, year });
+        }
+      } else {
+        const feesForYear = appFees[year] || appFees[Object.keys(appFees).sort().pop() || "2026"] || INITIAL_FEES["2026"];
+        const cost = (feesForYear[type as any] as any) || 0;
+        if (dist[type]) {
+          dist[type].count += 1;
+          dist[type].cost += cost;
+        }
+      }
+    });
+
+    aftnMap.forEach((data) => {
+      const feesForYear = appFees[data.year] || appFees[Object.keys(appFees).sort().pop() || "2026"] || INITIAL_FEES["2026"];
+      const cost = (feesForYear[data.type as any] as any) || 0;
+      if (dist[data.type]) {
+        dist[data.type].count += 1;
+        dist[data.type].cost += cost;
+      }
+    });
+
+    return Object.entries(dist).map(([key, value]) => ({
+      key,
+      label: value.label,
+      count: value.count,
+      cost: value.cost,
+    }));
+  }, [flights, appFees]);
+
   const filteredStationsForSettings = useMemo(() => {
     return Object.keys(stationEmails)
       .filter((code) => String(code).includes(String(settingsSearch || "").toUpperCase()))
@@ -2269,6 +2315,7 @@ export default function App() {
             stationDensity={stationDensity}
             statusDistribution={statusDistribution}
             weekdayAftnDensity={weekdayAftnDensity}
+            aftnTypeDistribution={aftnTypeDistribution}
           />
         )}
 

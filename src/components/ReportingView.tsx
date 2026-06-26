@@ -1,5 +1,5 @@
 import React from "react";
-import { BarChart2, Users, AlertTriangle } from "lucide-react";
+import { BarChart2, Users, AlertTriangle, PieChart } from "lucide-react";
 
 interface ReportingViewProps {
   reportMetrics: any;
@@ -7,6 +7,7 @@ interface ReportingViewProps {
   stationDensity: any[];
   statusDistribution: any[];
   weekdayAftnDensity: any[];
+  aftnTypeDistribution: any[];
 }
 
 export default function ReportingView({
@@ -15,6 +16,7 @@ export default function ReportingView({
   stationDensity,
   statusDistribution,
   weekdayAftnDensity,
+  aftnTypeDistribution = [],
 }: ReportingViewProps) {
   return (
     <div className="animate-fade-in space-y-8">
@@ -121,6 +123,47 @@ export default function ReportingView({
                     <span className="text-white text-xs font-black font-mono">{bar.value}</span>
                   </div>
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mt-3 font-mono">{bar.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* AFTN Type Distribution Chart */}
+        <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] min-h-[450px] flex flex-col hover:translate-y-[-2px] transition-all duration-300">
+          <div className="flex items-center gap-2 mb-8 text-zinc-900 font-bold text-sm uppercase tracking-wider font-mono">
+            <PieChart size={20} className="text-zinc-900" />
+            <span>AFTN Basvuru Turu ve Maliyet Dagilimi</span>
+          </div>
+          <div className="space-y-6 overflow-y-auto flex-1 pr-2">
+            {aftnTypeDistribution.map((item, idx) => {
+              const maxCount = Math.max(...aftnTypeDistribution.map(d => d.count), 1);
+              const wPct = (item.count / maxCount) * 100;
+              
+              const barColors = [
+                "bg-[#0B2341]", // THY Dark Blue
+                "bg-[#C8102E]", // THY Red
+                "bg-amber-500", // Warm Amber
+                "bg-zinc-600"   // Zinc Gray
+              ];
+              const activeColor = barColors[idx % barColors.length];
+
+              return (
+                <div key={idx} className="space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold font-mono">
+                    <span className="text-zinc-800 font-extrabold">{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="bg-zinc-100 border-2 border-zinc-900 px-2 py-0.5 rounded-lg text-zinc-900 font-black whitespace-nowrap">
+                        {item.count} adet
+                      </span>
+                      <span className="text-[#C8102E] font-black whitespace-nowrap">
+                        {item.cost.toLocaleString("tr-TR")} TL
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full h-4 bg-zinc-100 rounded-full border-2 border-zinc-900 overflow-hidden shadow-inner p-0.5">
+                    <div style={{ width: `${wPct}%` }} className={`h-full ${activeColor} border-r-2 border-zinc-900 rounded-full transition-all duration-500`} />
+                  </div>
                 </div>
               );
             })}
