@@ -1177,16 +1177,30 @@ export default function App() {
           const d = new Date(f.timestamps.APP_MADE);
           if (!isNaN(d.getTime())) dateToUse = d;
         }
+        if (!dateToUse && f.timestamps?.APPROVED) {
+          const d = new Date(f.timestamps.APPROVED);
+          if (!isNaN(d.getTime())) dateToUse = d;
+        }
+        if (!dateToUse && f.timestamps?.REJECTED) {
+          const d = new Date(f.timestamps.REJECTED);
+          if (!isNaN(d.getTime())) dateToUse = d;
+        }
+        if (!dateToUse && f.timestamps?.CANCELLED) {
+          const d = new Date(f.timestamps.CANCELLED);
+          if (!isNaN(d.getTime())) dateToUse = d;
+        }
         if (!dateToUse && f.date) {
-          const parts = String(f.date).split(".");
-          if (parts.length === 3) {
-            dateToUse = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+          const parsed = parseDDMMYYYY(f.date);
+          if (parsed && parsed.getFullYear() > 1900) {
+            dateToUse = parsed;
           }
         }
 
         if (dateToUse && !isNaN(dateToUse.getTime())) {
-          // Filter out future dates to prevent polluting the trend (e.g., 2028)
-          if (dateToUse > currentDate) {
+          // Filter out far-future dates to prevent polluting the trend (e.g., 2028)
+          const maxFutureDate = new Date(currentDate);
+          maxFutureDate.setFullYear(currentDate.getFullYear() + 1);
+          if (dateToUse > maxFutureDate) {
             return;
           }
           const mY = `${String(dateToUse.getMonth() + 1).padStart(2, "0")}.${dateToUse.getFullYear()}`;
@@ -1215,7 +1229,7 @@ export default function App() {
       months[k].aftns.forEach((cost) => (totalCost += cost));
       return { label: k, value: months[k].aftns.size, cost: totalCost };
     });
-  }, [flights, appFees]);
+  }, [flights, appFees, currentDate]);
 
   const stationDensity = useMemo(() => {
     const counts: Record<string, number> = {};
