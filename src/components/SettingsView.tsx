@@ -9,16 +9,15 @@ import {
   CreditCard,
   Download,
   UploadCloud,
-  RefreshCw,
-  Table as TableIcon,
-  Copy,
-  Check
+  Check,
+  Paintbrush,
+  Sparkles,
+  Plane
 } from "lucide-react";
-import { sanitizeGoogleSheetsUrl, sanitizeGoogleAppsScriptUrl } from "../utils/googleSheets";
 
 interface SettingsViewProps {
-  settingsTab: "EMAILS" | "FEES" | "DATA";
-  setSettingsTab: (tab: "EMAILS" | "FEES" | "DATA") => void;
+  settingsTab: "EMAILS" | "FEES" | "THEMES" | "DATA";
+  setSettingsTab: (tab: "EMAILS" | "FEES" | "THEMES" | "DATA") => void;
   stationEmails: any;
   setStationEmails: React.Dispatch<React.SetStateAction<any>>;
   appFees: any;
@@ -45,18 +44,9 @@ interface SettingsViewProps {
   importFromJson: (file: File) => void;
   clearAllData: () => void;
   
-  // Google Sheets Props
-  googleSheetsUrl: string;
-  setGoogleSheetsUrl: (url: string) => void;
-  googleAppsScriptUrl: string;
-  setGoogleAppsScriptUrl: (url: string) => void;
-  googleSyncStatus: string;
-  lastSyncTime: Date | null;
-  autoSyncEnabled: boolean;
-  setAutoSyncEnabled: (val: boolean) => void;
-  handleGooglePull: () => Promise<void>;
-  handleGooglePush: () => Promise<void>;
-  handleGoogleFullSync: () => Promise<void>;
+  // Theme props
+  theme: "BENTO" | "THY" | "APPLE";
+  setTheme: (theme: "BENTO" | "THY" | "APPLE") => void;
 }
 
 export default function SettingsView({
@@ -88,119 +78,13 @@ export default function SettingsView({
   importFromJson,
   clearAllData,
   
-  googleSheetsUrl,
-  setGoogleSheetsUrl,
-  googleAppsScriptUrl,
-  setGoogleAppsScriptUrl,
-  googleSyncStatus,
-  lastSyncTime,
-  autoSyncEnabled,
-  setAutoSyncEnabled,
-  handleGooglePull,
-  handleGooglePush,
-  handleGoogleFullSync,
+  theme,
+  setTheme,
 }: SettingsViewProps) {
-  const [copiedScript, setCopiedScript] = useState(false);
-
-  const googleScriptCode = `/*
-  ==============================================================
-  GOOGLE SHEET TO CO-PILOT SYNC SCRIPT (SHGM PORTAL)
-  ==============================================================
-  Bu kod, SHGM uçuş takip uygulamanızın Google E-Tablonuza hem veri yazmasını
-  hem de verileri anında oradan okumasını ve sütun başlıklarını otomatik oluşturmasını sağlar.
-
-  NASIL KULLANILIR:
-  1. Google E-Tablonuzu açın. 
-  2. Üst menüden "Uzantılar" > "Apps Script" kısmına tıklayın.
-  3. Açılan kod editöründeki tüm kodları silin ve yerine BU KODU yapıştırın.
-  4. "Kaydet" (Disket simgesi) butonuna basın.
-  5. Sağ üstteki "Dağıt" > "Yeni Dağıtım" butonuna tıklayın.
-  6. Türünü "Web Uygulaması" olarak seçin.
-  7. Ayarları şu şekilde yapın:
-     - Uygulamayı şu kişi olarak yürüt: "Ben" (Hesabınız)
-     - Kimlerin erişimi var: "Herkes" (Bunu seçmeniz güvenli CORS bağlantısı ve API erişimi için gereklidir)
-  8. "Dağıt" deyin ve erişim yetkilerini onaylayın (Advanced > Go to Untitled Project / Güvenli Değil diyerek izin verin).
-  9. Size verilen "Web Uygulaması URL'si" kopyalayıp aşağıdaki "Google Apps Script API URL" kutusuna yapıştırın.
-*/
-
-function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  ensureHeaders(sheet);
-  var data = getSheetData(sheet);
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  ensureHeaders(sheet);
-  
-  var body = e.postData.contents;
-  var flights = JSON.parse(body);
-  
-  // Tablo başlıkları hariç verileri temizleyip yeniden yazarız
-  sheet.clearContents();
-  ensureHeaders(sheet);
-  
-  var headers = getHeaders();
-  var rows = flights.map(function(item) {
-    return headers.map(function(h) {
-      if (h === "timestamps") {
-        return typeof item[h] === "string" ? item[h] : JSON.stringify(item[h] || {});
-      }
-      return item[h] !== undefined ? item[h] : "";
-    });
-  });
-  
-  if (rows.length > 0) {
-    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({ status: "success", count: rows.length }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function ensureHeaders(sheet) {
-  var headers = getHeaders();
-  var range = sheet.getRange(1, 1, 1, headers.length);
-  range.setValues([headers]);
-  range.setFontWeight("bold");
-  sheet.setFrozenRows(1);
-}
-
-function getHeaders() {
-  return [
-    "id", "al", "flNo", "date", "day", "orig", "dest", "std", "sta", 
-    "status", "appType", "aftnNo", "awbNo", "isDg", "cancelled", "isBulk", "bulkId", "timestamps"
-  ];
-}
-
-function getSheetData(sheet) {
-  var rows = sheet.getDataRange().getValues();
-  if (rows.length <= 1) return [];
-  var headers = rows[0];
-  var data = [];
-  for (var i = 1; i < rows.length; i++) {
-    var rawRow = rows[i];
-    var obj = {};
-    headers.forEach(function(h, idx) {
-      if (h) {
-        obj[h] = rawRow[idx];
-      }
-    });
-    data.push(obj);
-  }
-  return data;
-}`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(googleScriptCode);
-    setCopiedScript(true);
-    setTimeout(() => setCopiedScript(false), 2000);
-  };
 
   return (
     <div className="animate-fade-in space-y-6">
+      {/* Sub tabs inside Settings */}
       <div className="flex bg-zinc-100 p-1 rounded-xl border-2 border-zinc-900 inline-flex mb-4 overflow-x-auto max-w-full">
         <button
           onClick={() => setSettingsTab("EMAILS")}
@@ -215,6 +99,12 @@ function getSheetData(sheet) {
           <CreditCard size={14} /> Basvuru Ucretleri
         </button>
         <button
+          onClick={() => setSettingsTab("THEMES")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "THEMES" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}
+        >
+          <Paintbrush size={14} /> Tema Seçimi
+        </button>
+        <button
           onClick={() => setSettingsTab("DATA")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "DATA" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}
         >
@@ -222,6 +112,7 @@ function getSheetData(sheet) {
         </button>
       </div>
 
+      {/* 1. EMAILS TAB */}
       {settingsTab === "EMAILS" && (
         <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -322,6 +213,7 @@ function getSheetData(sheet) {
         </div>
       )}
 
+      {/* 2. FEES TAB */}
       {settingsTab === "FEES" && (
         <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-2xl">
           <div className="flex justify-between items-center mb-6">
@@ -357,10 +249,10 @@ function getSheetData(sheet) {
                 <label className="text-xs font-black uppercase tracking-wider text-zinc-800">{fee.label}</label>
                 <div className="relative">
                   <input
-                    type="number"
-                    value={appFees[feeYear]?.[fee.key] || 0}
-                    onChange={(e) => handleFeeChange(fee.key, e.target.value)}
-                    className="w-32 px-4 py-1.5 bg-white border-2 border-zinc-900 rounded-lg text-right font-mono font-black text-zinc-900 focus:outline-none pr-8"
+                     type="number"
+                     value={appFees[feeYear]?.[fee.key] || 0}
+                     onChange={(e) => handleFeeChange(fee.key, e.target.value)}
+                     className="w-32 px-4 py-1.5 bg-white border-2 border-zinc-900 rounded-lg text-right font-mono font-black text-zinc-900 focus:outline-none pr-8"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-900 font-bold text-xs pointer-events-none">₺</span>
                 </div>
@@ -371,161 +263,95 @@ function getSheetData(sheet) {
         </div>
       )}
 
+      {/* 3. THEMES TAB (NEW FEATURE) */}
+      {settingsTab === "THEMES" && (
+        <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
+          <div className="flex items-center gap-3 border-b-2 border-zinc-900 pb-4 mb-6">
+            <div className="bg-red-50 text-red-600 border-2 border-zinc-900 p-2 rounded-xl shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+              <Paintbrush size={20} />
+            </div>
+            <div>
+              <h3 className="text-base font-black uppercase tracking-wider text-zinc-900">Uygulama Teması</h3>
+              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">SHGM takip ekranlarını THY kurumsal kimliğine veya Apple minimalist tasarımına uyarlayın.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Theme 1: BENTO */}
+            <div 
+              onClick={() => setTheme("BENTO")}
+              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "BENTO" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider bg-zinc-200 border border-zinc-900 px-2 py-0.5 rounded font-mono text-zinc-800">Klasik Bento</span>
+                  {theme === "BENTO" && <Check size={16} className="text-zinc-900" />}
+                </div>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Özgün, kalın siyah kenarlıklar ve neo-brutalist yüksek enerjili bento kutusu tasarımı.</p>
+              </div>
+              <div className="mt-8 border border-zinc-900 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <div className="w-10 h-3 bg-zinc-900 rounded"></div>
+                <div className="w-full h-1 bg-zinc-200"></div>
+                <div className="w-1/2 h-1.5 bg-[#C8102E] rounded"></div>
+              </div>
+            </div>
+
+            {/* Theme 2: THY */}
+            <div 
+              onClick={() => setTheme("THY")}
+              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "THY" ? "border-zinc-900 bg-zinc-50 ring-2 ring-red-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                    <Plane size={11} /> Türk Hava Yolları
+                  </span>
+                  {theme === "THY" && <Check size={16} className="text-red-600" />}
+                </div>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">THY kurumsal renkleri (Kırmızı & Gece Mavisi), zarif 1px kenarlıklar, yumuşak gölgeler ve modern kurumsal font.</p>
+              </div>
+              <div className="mt-8 border border-gray-200 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-md">
+                <div className="w-10 h-3 bg-[#0B1930] rounded"></div>
+                <div className="w-full h-1 bg-gray-100"></div>
+                <div className="w-1/2 h-1.5 bg-[#C8102E] rounded"></div>
+              </div>
+            </div>
+
+            {/* Theme 3: APPLE */}
+            <div 
+              onClick={() => setTheme("APPLE")}
+              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "APPLE" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200 px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                    <Sparkles size={11} /> Apple Minimal
+                  </span>
+                  {theme === "APPLE" && <Check size={16} className="text-zinc-850" />}
+                </div>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Süper ince kenarlıklar, ultra-hafif gölgeler, saf beyaz bento kartları, geniş boşluklar ve Apple sistem fontu.</p>
+              </div>
+              <div className="mt-8 border border-gray-100/60 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-sm">
+                <div className="w-10 h-3 bg-zinc-900 rounded-full"></div>
+                <div className="w-full h-1 bg-zinc-100"></div>
+                <div className="w-1/2 h-1.5 bg-zinc-900 rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. DATA TAB */}
       {settingsTab === "DATA" && (
         <div className="space-y-8 animate-fade-in">
-          {/* Google Sheets Configuration & Integration Panel */}
-          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
-            <div className="flex items-center gap-3 border-b-2 border-zinc-900 pb-4 mb-6">
-              <div className="bg-emerald-100 text-emerald-800 border-2 border-zinc-900 p-2 rounded-xl shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                <TableIcon size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-black uppercase tracking-wider text-zinc-900">Google Sheets Bulut Senkronizasyonu</h3>
-                <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">Google E-Tablo entegrasyonu ile verileri guvenle depolayin, yukleyin ve esitleyin.</p>
-              </div>
-            </div>
-
-            {/* Custom Google Sheets Input Fields */}
-            <div className="space-y-4 mb-8">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-black uppercase tracking-wider text-zinc-800 font-mono">
-                  Google Sheet Web Yayını URL (GET - Salt Okunur / CSV)
-                </label>
-                <input
-                  type="text"
-                  value={googleSheetsUrl}
-                  onChange={(e) => setGoogleSheetsUrl(e.target.value)}
-                  onBlur={(e) => setGoogleSheetsUrl(sanitizeGoogleSheetsUrl(e.target.value))}
-                  placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv"
-                  className="w-full px-4 py-2.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none text-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                />
-                <span className="text-[10px] text-zinc-400 font-medium">
-                  E-Tablonuzu internette "Web'e yayınla" dedikten sonra ortaya çıkan CSV bağlantısıdır. Başlangıçta verileri çekmek için bağımsız olarak kullanılabilir.
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-black uppercase tracking-wider text-zinc-800 font-mono">
-                  Google Apps Script Web App URL (GET & POST - Tam Yetki / Başlık Düzenleyici)
-                </label>
-                <input
-                  type="text"
-                  value={googleAppsScriptUrl}
-                  onChange={(e) => setGoogleAppsScriptUrl(e.target.value)}
-                  onBlur={(e) => setGoogleAppsScriptUrl(sanitizeGoogleAppsScriptUrl(e.target.value))}
-                  placeholder="https://script.google.com/macros/s/.../exec"
-                  className="w-full px-4 py-2.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none text-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                />
-                <span className="text-[10px] text-zinc-400 font-medium">
-                  Kaydetme (Buluta Yazma) ve otomatik başlık kurgulama işlemleri için bu bağlantıyı tanımlayın. Aşağıdaki kurulum panelinden kodu kopyalayabilirsiniz.
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 pt-2">
-              <div className="bg-zinc-100 p-4 rounded-xl border-2 border-zinc-900 space-y-2.5 text-xs font-mono">
-                <div><span className="font-bold text-zinc-500">Aktif Kaynak:</span> <code className="font-mono text-zinc-800 block truncate" title={googleAppsScriptUrl || googleSheetsUrl}>{googleAppsScriptUrl || googleSheetsUrl}</code></div>
-                <div><span className="font-bold text-zinc-500">Son Esitleme:</span> <span className="font-black text-zinc-800">{lastSyncTime ? lastSyncTime.toLocaleString("tr-TR") : "Senkronize Edilmedi"}</span></div>
-                <div className="flex items-center">
-                  <span className="font-bold text-zinc-500">Durum:</span> 
-                  <span className={`ml-2 px-2.5 py-0.5 rounded border border-zinc-900 text-[10px] font-black uppercase tracking-wider ${
-                    googleSyncStatus === "idle" && lastSyncTime ? "bg-emerald-300 text-zinc-950" :
-                    googleSyncStatus === "success" ? "bg-emerald-300 text-zinc-950" :
-                    googleSyncStatus === "error" ? "bg-red-300 text-zinc-950" : "bg-blue-300 text-zinc-950"
-                  }`}>
-                    {googleSyncStatus === "idle" && lastSyncTime ? "AKTİF" :
-                     googleSyncStatus === "loading" ? "YÜKLENİYOR" :
-                     googleSyncStatus === "saving" ? "KAYDEDİLİYOR" :
-                     googleSyncStatus === "error" ? "BAĞLANTI HATASI" : "BAĞLANDI"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-center p-4 bg-zinc-50 border-2 border-zinc-900 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 rounded border-2 border-zinc-900 text-zinc-905 focus:ring-0 checked:bg-zinc-900 cursor-pointer"
-                    checked={autoSyncEnabled}
-                    onChange={(e) => setAutoSyncEnabled(e.target.checked)}
-                  />
-                  <div>
-                    <span className="text-xs font-black uppercase tracking-wider text-zinc-900 block">Her Islemi Otomatik Yaz (Auto-Sync)</span>
-                    <span className="text-[10px] text-zinc-400 block mt-0.5 font-mono">Permi ekleme, onay degisikligi ve iptallerde Google Sheets'i debounced olarak besler.</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-start gap-4 border-t-2 border-zinc-900 pt-5">
-              <button
-                onClick={handleGoogleFullSync}
-                disabled={googleSyncStatus === "loading" || googleSyncStatus === "saving"}
-                className="flex items-center gap-2 px-5 py-3 bg-emerald-300 text-zinc-900 text-xs font-black uppercase tracking-wider border-2 border-zinc-900 rounded-xl hover:bg-emerald-400 transition shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-              >
-                <RefreshCw size={14} className={googleSyncStatus === "loading" ? "animate-spin" : ""} /> Çift Yönlü Tam Eşitle (Merge / Çek & Yaz)
-              </button>
-              <button
-                onClick={handleGooglePull}
-                disabled={googleSyncStatus === "loading" || googleSyncStatus === "saving"}
-                className="flex items-center gap-2 px-5 py-3 bg-white text-zinc-900 border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl hover:bg-zinc-50 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 cursor-pointer"
-              >
-                <Download size={14} /> Buluttan Veri Çek (Sadece Oku)
-              </button>
-              <button
-                onClick={handleGooglePush}
-                disabled={googleSyncStatus === "loading" || googleSyncStatus === "saving"}
-                className="flex items-center gap-2 px-5 py-3 bg-white text-zinc-900 border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl hover:bg-zinc-50 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 cursor-pointer"
-              >
-                <UploadCloud size={14} /> Yerel Veriyi Buluta Yaz (Kaydet)
-              </button>
-            </div>
-          </div>
-
-          {/* Apps Script Setup Instructions Panel */}
-          <div className="bg-amber-50 p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
-            <div className="flex justify-between items-start gap-4 flex-wrap border-b border-zinc-900 pb-4 mb-4">
-              <div>
-                <h4 className="text-sm font-black uppercase tracking-wider text-zinc-900">Kurulum Klavuzu & Google Apps Script Kod Deposu</h4>
-                <p className="text-[10px] text-zinc-600 font-mono uppercase mt-0.5">E-Tablonuzun otomatik başlık kurma ve veri kaydetme mekanizmasını aktif edin.</p>
-              </div>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-950 text-white text-xs font-bold rounded-lg hover:bg-zinc-800 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-              >
-                {copiedScript ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                {copiedScript ? "Kopyalandı!" : "Kodu Kopyala"}
-              </button>
-            </div>
-
-            <ol className="list-decimal list-inside text-xs leading-relaxed text-zinc-800 font-mono space-y-2.5 mb-6">
-              <li>Mevcut Google E-Tablo dosyanızı açın (bağlantı url sahibi olmalıdır).</li>
-              <li>Üst panodaki <span className="bg-zinc-150 px-1 border border-zinc-300 rounded">Uzantılar</span> menüsünden <span className="bg-zinc-150 px-1 border border-zinc-300 rounded">Apps Script</span> sekmesini açın.</li>
-              <li>Oradaki varsayılan kod satırlarını tamamen temizleyip kopyaladığınız kodu buraya yapıştırın ve disket butonuyla kaydedin.</li>
-              <li>Sağ üst köşedeki <span className="text-[#C8102E] font-bold">Dağıt</span> butonuna basıp <span className="font-bold">"Yeni Dağıtım"</span> deyin.</li>
-              <li>Sol üstte çark simgesinden tür seçip <span className="font-bold">"Web Uygulaması"</span> seçeneğini tıklayın.</li>
-              <li>Ayarları: "Yürütücü: <span className="font-bold">Ben</span>", "Erişim Yetkisi: <span className="font-bold">Herkes</span>" yapıp Dağıt butonuna tıklayarak açılan onay penceresinde izni verin.</li>
-              <li>Oluşan bağlantıyı (<span className="italic font-mono">https://script.google.com/macros/s/...</span>) kopyalayıp yukarıdaki Google Apps Script kutusuna yazın. Başlıklar ve veri akışı artık milisaniyeler içerisinde çift yönlü senkronize olur!</li>
-            </ol>
-
-            <div className="relative">
-              <pre className="p-4 bg-zinc-900 text-[#a6e22e] rounded-xl border-2 border-zinc-950 font-mono text-[9.5px] max-h-52 overflow-y-auto whitespace-pre leading-normal shadow-inner select-all">
-                {googleScriptCode}
-              </pre>
-              <div className="absolute top-2 right-2 bg-zinc-800 text-zinc-300 text-[9px] font-mono uppercase font-black tracking-wider px-2 py-0.5 rounded border border-zinc-700 pointer-events-none">
-                Google Apps Script
-              </div>
-            </div>
-          </div>
-
           {/* Standard persistence block */}
           <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 mb-6 flex items-center gap-2">
-              <Database size={18} className="text-zinc-900" /> Yerel Veri Yedekleme ve Yonetim
+              <Database size={18} className="text-zinc-900" /> Yerel Veri Yedekleme ve Yönetim
             </h3>
             <div className="flex flex-col md:flex-row items-center justify-start gap-4">
-              <button onClick={manualDownload} className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white text-xs font-bold uppercase rounded-xl hover:bg-zinc-850 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer">
-                <Download size={14} /> JSON Olarak Indir (Yedek)
+              <button onClick={manualDownload} className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white text-xs font-bold uppercase rounded-xl hover:bg-zinc-850 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer w-full md:w-auto justify-center">
+                <Download size={14} /> JSON Olarak İndir (Yedek)
               </button>
               <input
                 type="file"
@@ -537,15 +363,15 @@ function getSheetData(sheet) {
                 className="hidden"
                 accept=".json"
               />
-              <button onClick={() => importInputRef.current?.click()} className="flex items-center gap-2 px-5 py-3 bg-white text-zinc-900 border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl hover:bg-zinc-50 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer">
-                <UploadCloud size={14} /> JSON'dan Yukle
+              <button onClick={() => importInputRef.current?.click()} className="flex items-center gap-2 px-5 py-3 bg-white text-zinc-900 border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl hover:bg-zinc-50 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer w-full md:w-auto justify-center">
+                <UploadCloud size={14} /> JSON'dan Yükle
               </button>
-              <button onClick={clearAllData} className="flex items-center gap-2 px-5 py-3 text-zinc-950 bg-rose-200 border-2 border-zinc-900 text-xs font-black uppercase rounded-xl hover:bg-rose-300 transition md:ml-auto shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer">
-                <Trash2 size={14} /> Tum Verileri Temizle
+              <button onClick={clearAllData} className="flex items-center gap-2 px-5 py-3 text-zinc-950 bg-rose-200 border-2 border-zinc-900 text-xs font-black uppercase rounded-xl hover:bg-rose-300 transition md:ml-auto shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer w-full md:w-auto justify-center">
+                <Trash2 size={14} /> Tüm Verileri Temizle
               </button>
             </div>
             <p className="text-[11px] font-mono text-zinc-400 mt-6 bg-zinc-50 p-4 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-               ✓ Verileriniz tarayici veritabanina (Local Storage) otomatik kaydedilmektedir. Sayfa yenilendiginde veriler korunur.
+               ✓ Verileriniz tarayıcı veritabanına (Local Storage) otomatik kaydedilmektedir. İnternet bağlantısı olmasa dahi hiçbir veri kaybolmaz.
             </p>
           </div>
         </div>

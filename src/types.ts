@@ -28,6 +28,7 @@ export interface Flight {
   bulkId?: string;
   isBulk?: boolean;
   timestamps: FlightTimestamp;
+  notes?: string;
 }
 
 export interface AppFeesYil {

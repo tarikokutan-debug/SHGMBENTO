@@ -72,6 +72,7 @@ export default function EditGroupModal({
                     <th className="p-3">STD / STA</th>
                     <th className="p-3">AWB No</th>
                     <th className="p-3">DG?</th>
+                    <th className="p-3">Notlar</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -140,6 +141,14 @@ export default function EditGroupModal({
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                           checked={f.isDg || false}
                           onChange={e => handleEditFlightChange(f.id, "isDg", e.target.checked)}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input
+                          className="w-32 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                          placeholder="Not ekle..."
+                          value={f.notes || ""}
+                          onChange={e => handleEditFlightChange(f.id, "notes", e.target.value)}
                         />
                       </td>
                     </tr>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -20,4 +20,182 @@
 
 body {
   font-family: var(--font-sans);
+  background-color: #fafafa;
+  transition: background-color 0.3s ease;
+}
+
+/* ==========================================
+   THY (TURKISH AIRLINES) THEME OVERRIDES
+   ========================================== */
+.theme-thy {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+.theme-thy body {
+  background-color: #f8fafc;
+}
+
+/* Override brutalist 2px black borders to sleek corporate 1px borders */
+.theme-thy .border-2 {
+  border-width: 1px !important;
+  border-color: #e2e8f0 !important;
+}
+.theme-thy .border-b-2 {
+  border-width: 0 0 1px 0 !important;
+  border-color: #f1f5f9 !important;
+}
+.theme-thy .border-t-2 {
+  border-width: 1px 0 0 0 !important;
+  border-color: #f1f5f9 !important;
+}
+
+/* Replace retro shadows with elegant soft shadows */
+.theme-thy .shadow-\[4px_4px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.02) !important;
+}
+.theme-thy .shadow-\[2px_2px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+.theme-thy .shadow-\[2px_2px_0px_0px_rgba\(0\2c 0\2c 0\2c 1\)\] {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+.theme-thy .shadow-\[3px_3px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+}
+.theme-thy .hover\:shadow-\[6px_6px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\]:hover {
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08) !important;
+}
+.theme-thy .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Prevent translation effects that look too retro */
+.theme-thy .hover\:translate-x-\[-1px\]:hover,
+.theme-thy .hover\:translate-y-\[-1px\]:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* THY Red & Deep Midnight Navy Color Overrides */
+.theme-thy .bg-\[\#C8102E\] {
+  background-color: #C8102E !important; /* THY Corporate Red */
+}
+.theme-thy .text-\[\#C8102E\] {
+  color: #C8102E !important;
+}
+.theme-thy .hover\:bg-red-700:hover {
+  background-color: #A30D26 !important;
+}
+.theme-thy .bg-zinc-900 {
+  background-color: #0B1930 !important; /* THY Navy Blue */
+}
+.theme-thy .hover\:bg-zinc-850:hover,
+.theme-thy .hover\:bg-gray-800:hover,
+.theme-thy .hover\:bg-zinc-800:hover {
+  background-color: #122544 !important;
+}
+.theme-thy .text-zinc-900 {
+  color: #0F172A !important;
+}
+.theme-thy .border-zinc-900 {
+  border-color: #E2E8F0 !important;
+}
+.theme-thy .bg-zinc-100 {
+  background-color: #F1F5F9 !important;
+}
+.theme-thy .bg-zinc-50 {
+  background-color: #F8FAFC !important;
+}
+.theme-thy .text-zinc-650 {
+  color: #475569 !important;
+}
+.theme-thy .text-zinc-550 {
+  color: #64748B !important;
+}
+
+/* ==========================================
+   APPLE (MINIMALIST PREMIUM) THEME OVERRIDES
+   ========================================== */
+.theme-apple {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "Inter", sans-serif !important;
+}
+
+.theme-apple body {
+  background-color: #f5f5f7;
+}
+
+/* Ultra clean minimal gray borders */
+.theme-apple .border-2 {
+  border-width: 1px !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+.theme-apple .border-b-2 {
+  border-width: 0 0 1px 0 !important;
+  border-color: rgba(0, 0, 0, 0.05) !important;
+}
+.theme-apple .border-t-2 {
+  border-width: 1px 0 0 0 !important;
+  border-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Flat design - remove bulky retro shadows */
+.theme-apple .shadow-\[4px_4px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 16px rgba(0,0,0,0.03) !important;
+}
+.theme-apple .shadow-\[2px_2px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: none !important;
+}
+.theme-apple .shadow-\[2px_2px_0px_0px_rgba\(0\2c 0\2c 0\2c 1\)\] {
+  box-shadow: none !important;
+}
+.theme-apple .shadow-\[3px_3px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: none !important;
+}
+.theme-apple .hover\:shadow-\[6px_6px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\]:hover {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06) !important;
+}
+.theme-apple .shadow-2xl {
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Gentle transitions scale */
+.theme-apple .hover\:translate-x-\[-1px\]:hover,
+.theme-apple .hover\:translate-y-\[-1px\]:hover {
+  transform: scale(1.005) !important;
+}
+
+/* Monochromatic Apple Black & Light Gray Overrides */
+.theme-apple .bg-\[\#C8102E\] {
+  background-color: #1D1D1F !important; /* Apple Charcoal */
+}
+.theme-apple .text-\[\#C8102E\] {
+  color: #1D1D1F !important;
+}
+.theme-apple .hover\:bg-red-700:hover {
+  background-color: #000000 !important;
+}
+.theme-apple .bg-zinc-900 {
+  background-color: #121212 !important;
+}
+.theme-apple .hover\:bg-zinc-850:hover,
+.theme-apple .hover\:bg-gray-800:hover,
+.theme-apple .hover\:bg-zinc-800:hover {
+  background-color: #1d1d1f !important;
+}
+.theme-apple .text-zinc-900 {
+  color: #1d1d1f !important;
+}
+.theme-apple .border-zinc-900 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+.theme-apple .bg-zinc-100 {
+  background-color: #f5f5f7 !important;
+}
+.theme-apple .bg-zinc-50 {
+  background-color: #fafafa !important;
+}
+.theme-apple .text-zinc-650 {
+  color: #515154 !important;
+}
+.theme-apple .text-zinc-550 {
+  color: #86868b !important;
 }
