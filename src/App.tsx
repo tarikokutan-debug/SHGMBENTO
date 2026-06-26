@@ -295,10 +295,40 @@ export default function App() {
   }, []);
 
   // --- PERSISTENCE DOWNLOAD & PARSERS ---
-  const manualDownload = useCallback(() => {
+  const manualDownload = useCallback(async () => {
     try {
       const filename = `shgm_takip_yedek_${new Date().toISOString().slice(0, 10)}.json`;
-      const blob = new Blob([JSON.stringify(flights, null, 2)], { type: "application/json" });
+      const jsonContent = JSON.stringify(flights, null, 2);
+      const blob = new Blob([jsonContent], { type: "application/json" });
+
+      if ("showSaveFilePicker" in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: filename,
+            startIn: "downloads",
+            types: [
+              {
+                description: "JSON Yedek Dosyası",
+                accept: {
+                  "application/json": [".json"],
+                },
+              },
+            ],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          addBackupLog("MANUAL", "SUCCESS", `Farklı kaydet ile başarıyla yedeklendi: ${handle.name} (${flights.length} uçuş)`);
+          return;
+        } catch (err: any) {
+          if (err.name === "AbortError") {
+            addBackupLog("MANUAL", "ERROR", "Kullanıcı farklı kaydetme işlemini iptal etti.");
+            return;
+          }
+          console.warn("Farklı kaydet hatası, klasik indirmeye geçiliyor:", err);
+        }
+      }
+
       const u = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = u;
@@ -307,7 +337,7 @@ export default function App() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(u);
-      addBackupLog("MANUAL", "SUCCESS", `Başarıyla yedek indirildi: ${filename} (${flights.length} uçuş)`);
+      addBackupLog("MANUAL", "SUCCESS", `Başarıyla yedek indirildi (Klasik): ${filename} (${flights.length} uçuş)`);
     } catch (err: any) {
       addBackupLog("MANUAL", "ERROR", `Yedek indirilirken hata oluştu: ${err.message || err}`);
     }
@@ -1251,10 +1281,10 @@ export default function App() {
       else pending++;
     });
     return [
-      { label: "Bekleyen", value: pending, color: "bg-blue-500" },
+      { label: "Bekleyen", value: pending, color: "bg-[#0B2341]" },
       { label: "Onayli", value: approved, color: "bg-emerald-500" },
-      { label: "Reddedildi", value: rejected, color: "bg-red-500" },
-      { label: "Iptal", value: cancelled, color: "bg-orange-500" },
+      { label: "Reddedildi", value: rejected, color: "bg-[#C8102E]" },
+      { label: "Iptal", value: cancelled, color: "bg-zinc-500" },
     ].filter((x) => x.value > 0);
   }, [flights]);
 

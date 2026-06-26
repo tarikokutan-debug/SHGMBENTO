@@ -116,7 +116,7 @@ export default function ReportingView({
                   </div>
                   <div 
                     style={{ height: `${Math.max(hPct, 8)}%` }} 
-                    className="w-full bg-zinc-900 hover:bg-[#C8102E] border-2 border-zinc-900 hover:border-zinc-900 rounded-t-xl transition-all duration-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer max-w-[64px] flex flex-col items-center pt-3"
+                    className="w-full bg-[#0B2341] hover:bg-[#C8102E] border-2 border-zinc-900 rounded-t-xl transition-all duration-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer max-w-[64px] flex flex-col items-center pt-3"
                   >
                     <span className="text-white text-xs font-black font-mono">{bar.value}</span>
                   </div>
@@ -144,7 +144,7 @@ export default function ReportingView({
                     <span className="font-mono text-zinc-900 font-bold">{st.value} Ucus</span>
                   </div>
                   <div className="w-full h-4 bg-zinc-100 rounded-full border-2 border-zinc-900 overflow-hidden shadow-inner p-0.5">
-                    <div style={{ width: `${wPct}%` }} className="h-full bg-indigo-500 border-r-2 border-zinc-900 rounded-full transition-all duration-500" />
+                    <div style={{ width: `${wPct}%` }} className="h-full bg-[#C8102E] border-r-2 border-zinc-900 rounded-full transition-all duration-500" />
                   </div>
                 </div>
               );
@@ -197,7 +197,7 @@ export default function ReportingView({
                   <div key={i} className="flex flex-col items-center flex-1 group/wd relative h-full justify-end mx-1">
                     <div 
                       style={{ height: `${Math.max(barH, 8)}%` }} 
-                      className="w-full bg-[#C8102E] hover:bg-red-700 border-2 border-zinc-900 rounded-t-lg transition-all max-w-[64px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center pt-2 cursor-pointer"
+                      className="w-full bg-[#C8102E] hover:bg-[#0B2341] border-2 border-zinc-900 rounded-t-lg transition-all max-w-[64px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center pt-2 cursor-pointer"
                     >
                       {wd.value > 0 && <span className="text-white text-xs font-black font-mono">{wd.value}</span>}
                     </div>

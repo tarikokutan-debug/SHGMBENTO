@@ -344,7 +344,7 @@ export default function SettingsView({
             </h3>
             <div className="flex flex-col md:flex-row items-center justify-start gap-4">
               <button onClick={manualDownload} className="flex items-center gap-2 px-5 py-3 bg-zinc-900 text-white text-xs font-bold uppercase rounded-xl hover:bg-zinc-850 transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer w-full md:w-auto justify-center">
-                <Download size={14} /> JSON Olarak İndir (Yedek)
+                <Download size={14} /> Farklı Kaydet (Yedek)
               </button>
               <input
                 type="file"
