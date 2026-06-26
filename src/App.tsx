@@ -74,7 +74,7 @@ export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentView, setCurrentView] = useState("OPERATIONS");
   const [operationsTab, setOperationsTab] = useState("ACTIVE");
-  const [showSummaryPanel, setShowSummaryPanel] = useState(true);
+  const [showSummaryPanel, setShowSummaryPanel] = useState(false);
   const [feeYear, setFeeYear] = useState("2026");
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -94,7 +94,7 @@ export default function App() {
   const [newEmailInput, setNewEmailInput] = useState<Record<string, string>>({});
 
   // Modals & Flows States
-  const [showAddPanel, setShowAddPanel] = useState(true);
+  const [showAddPanel, setShowAddPanel] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedFlightForMail, setSelectedFlightForMail] = useState<any | null>(null);
   const [isAftnModalOpen, setIsAftnModalOpen] = useState(false);
@@ -141,9 +141,9 @@ export default function App() {
   const [theme, setTheme] = useState<"BENTO" | "THY" | "APPLE">(() => {
     try {
       const saved = localStorage.getItem("shgm_theme");
-      return (saved === "THY" || saved === "APPLE") ? saved : "BENTO";
+      return (saved === "BENTO" || saved === "THY" || saved === "APPLE") ? saved : "THY";
     } catch {
-      return "BENTO";
+      return "THY";
     }
   });
 
@@ -151,6 +151,44 @@ export default function App() {
     setTheme(newTheme);
     localStorage.setItem("shgm_theme", newTheme);
   };
+
+  // --- BACKUP LOG SYSTEM ---
+  const [backupLogs, setBackupLogs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem("shgm_backup_logs");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const addBackupLog = useCallback((type: "MANUAL" | "AUTO" | "IMPORT" | "CLEAR", status: "SUCCESS" | "ERROR", message: string) => {
+    const newLog = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date().toISOString(),
+      type,
+      status,
+      message
+    };
+    setBackupLogs((prev) => {
+      const updated = [newLog, ...prev].slice(0, 100);
+      localStorage.setItem("shgm_backup_logs", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const clearBackupLogs = useCallback(() => {
+    setBackupLogs([]);
+    localStorage.removeItem("shgm_backup_logs");
+  }, []);
+
+  const lastBackupTime = useMemo(() => {
+    const successLogs = backupLogs.filter(log => log.status === "SUCCESS" && (log.type === "MANUAL" || log.type === "AUTO"));
+    if (successLogs.length > 0) {
+      return new Date(successLogs[0].timestamp).toLocaleString("tr-TR");
+    }
+    return null;
+  }, [backupLogs]);
 
   useEffect(() => {
     try {
@@ -256,17 +294,22 @@ export default function App() {
 
   // --- PERSISTENCE DOWNLOAD & PARSERS ---
   const manualDownload = useCallback(() => {
-    const filename = `shgm_takip_yedek_${new Date().toISOString().slice(0, 10)}.json`;
-    const blob = new Blob([JSON.stringify(flights, null, 2)], { type: "application/json" });
-    const u = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = u;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(u);
-  }, [flights]);
+    try {
+      const filename = `shgm_takip_yedek_${new Date().toISOString().slice(0, 10)}.json`;
+      const blob = new Blob([JSON.stringify(flights, null, 2)], { type: "application/json" });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(u);
+      addBackupLog("MANUAL", "SUCCESS", `Başarıyla yedek indirildi: ${filename} (${flights.length} uçuş)`);
+    } catch (err: any) {
+      addBackupLog("MANUAL", "ERROR", `Yedek indirilirken hata oluştu: ${err.message || err}`);
+    }
+  }, [flights, addBackupLog]);
 
   const importFromJson = useCallback((file: File) => {
     const r = new FileReader();
@@ -276,14 +319,19 @@ export default function App() {
         if (Array.isArray(d)) {
           if (window.confirm("Mevcut yerel veriler silinip yuklenen dosya basilacak. Devam?")) {
             setFlights(d);
+            addBackupLog("IMPORT", "SUCCESS", `Dosyadan başarıyla veri yüklendi: ${file.name} (${d.length} uçuş)`);
           }
-        } else alert("Gecersiz dosya formati.");
-      } catch {
+        } else {
+          alert("Gecersiz dosya formati.");
+          addBackupLog("IMPORT", "ERROR", `Yükleme hatası: Geçersiz dosya formatı (${file.name})`);
+        }
+      } catch (err: any) {
         alert("Dosya okunamadi.");
+        addBackupLog("IMPORT", "ERROR", `Yükleme hatası: ${err.message || err}`);
       }
     };
     r.readAsText(file);
-  }, []);
+  }, [addBackupLog]);
 
   const triggerSafeMailto = (mailtoUrl: string) => {
     const a = document.createElement("a");
@@ -703,8 +751,13 @@ export default function App() {
 
   const clearAllData = () => {
     if (window.confirm("DIKKAT: Tum veriler silinecek.")) {
-      localStorage.removeItem(STORAGE_KEY);
-      setFlights(INITIAL_FLIGHTS);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        setFlights(INITIAL_FLIGHTS);
+        addBackupLog("CLEAR", "SUCCESS", "Tüm uçuş verileri başarıyla temizlendi.");
+      } catch (err: any) {
+        addBackupLog("CLEAR", "ERROR", `Temizleme işlemi sırasında hata oluştu: ${err.message || err}`);
+      }
     }
   };
 
@@ -1040,14 +1093,25 @@ export default function App() {
   const monthlyAftnTrend = useMemo(() => {
     const months: Record<string, { aftns: Map<string, number> }> = {};
     flights.forEach((f) => {
-      if (f && f.timestamps?.APP_MADE && f.aftnNo) {
-        const d = new Date(f.timestamps.APP_MADE);
-        if (!isNaN(d.getTime())) {
-          const mY = `${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+      if (f && f.aftnNo) {
+        let dateToUse: Date | null = null;
+        if (f.timestamps?.APP_MADE) {
+          const d = new Date(f.timestamps.APP_MADE);
+          if (!isNaN(d.getTime())) dateToUse = d;
+        }
+        if (!dateToUse && f.date) {
+          const parts = String(f.date).split(".");
+          if (parts.length === 3) {
+            dateToUse = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+          }
+        }
+
+        if (dateToUse && !isNaN(dateToUse.getTime())) {
+          const mY = `${String(dateToUse.getMonth() + 1).padStart(2, "0")}.${dateToUse.getFullYear()}`;
           if (!months[mY]) months[mY] = { aftns: new Map() };
           const aftn = String(f.aftnNo).trim().toUpperCase();
           if (!months[mY].aftns.has(aftn)) {
-            const year = d.getFullYear().toString();
+            const year = dateToUse.getFullYear().toString();
             const type = f.appType || "yeniPermi";
             const feesForYear = appFees[year] || appFees[Object.keys(appFees).sort().pop() || "2026"] || INITIAL_FEES["2026"];
             const cost = (feesForYear[type as any] as any) || 0;
@@ -2067,6 +2131,9 @@ export default function App() {
             clearAllData={clearAllData}
             theme={theme}
             setTheme={changeTheme}
+            backupLogs={backupLogs}
+            lastBackupTime={lastBackupTime}
+            clearBackupLogs={clearBackupLogs}
           />
         )}
       </main>

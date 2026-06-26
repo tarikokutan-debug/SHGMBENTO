@@ -12,7 +12,10 @@ import {
   Check,
   Paintbrush,
   Sparkles,
-  Plane
+  Plane,
+  History,
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -47,6 +50,11 @@ interface SettingsViewProps {
   // Theme props
   theme: "BENTO" | "THY" | "APPLE";
   setTheme: (theme: "BENTO" | "THY" | "APPLE") => void;
+
+  // Backup history props
+  backupLogs: any[];
+  lastBackupTime: string | null;
+  clearBackupLogs: () => void;
 }
 
 export default function SettingsView({
@@ -80,6 +88,10 @@ export default function SettingsView({
   
   theme,
   setTheme,
+
+  backupLogs,
+  lastBackupTime,
+  clearBackupLogs,
 }: SettingsViewProps) {
 
   return (
@@ -343,9 +355,9 @@ export default function SettingsView({
 
       {/* 4. DATA TAB */}
       {settingsTab === "DATA" && (
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-8 animate-fade-in max-w-4xl">
           {/* Standard persistence block */}
-          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 mb-6 flex items-center gap-2">
               <Database size={18} className="text-zinc-900" /> Yerel Veri Yedekleme ve Yönetim
             </h3>
@@ -373,6 +385,83 @@ export default function SettingsView({
             <p className="text-[11px] font-mono text-zinc-400 mt-6 bg-zinc-50 p-4 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                ✓ Verileriniz tarayıcı veritabanına (Local Storage) otomatik kaydedilmektedir. İnternet bağlantısı olmasa dahi hiçbir veri kaybolmaz.
             </p>
+          </div>
+
+          {/* Yedekleme Geçmişi Paneli */}
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b-2 border-zinc-900 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
+                  <History size={18} className="text-zinc-900" /> Yedekleme Geçmişi
+                </h3>
+                <p className="text-xs text-zinc-500 mt-1">Uygulamanın yedek indirme, yükleme ve sıfırlama işlemleri günlüğü.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 border-2 border-zinc-900 px-3 py-1.5 rounded-xl text-xs font-bold font-mono shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                  <Clock size={13} />
+                  <span>Son Başarılı: {lastBackupTime || "Hiç yedek alınmadı"}</span>
+                </div>
+                {backupLogs.length > 0 && (
+                  <button 
+                    onClick={clearBackupLogs} 
+                    className="flex items-center gap-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-2 border-zinc-900 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                  >
+                    <Trash2 size={13} /> Günlüğü Temizle
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {backupLogs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-300 text-zinc-400">
+                <History size={32} className="stroke-1 mb-2 text-zinc-400" />
+                <p className="text-xs font-bold uppercase tracking-wider">Henüz kayıtlı bir yedekleme işlemi bulunmuyor.</p>
+                <p className="text-[10px] font-medium mt-1">Sistem verilerini yedeklemek için yukarıdaki "JSON Olarak İndir" butonunu kullanabilirsiniz.</p>
+              </div>
+            ) : (
+              <div className="border-2 border-zinc-900 rounded-2xl overflow-hidden shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <div className="max-h-64 overflow-y-auto divide-y-2 divide-zinc-900">
+                  {backupLogs.map((log) => {
+                    const typeLabel = {
+                      MANUAL: "Manuel Yedek",
+                      AUTO: "Otomatik Yedek",
+                      IMPORT: "Veri Yükleme",
+                      CLEAR: "Sistem Sıfırlama"
+                    }[log.type as "MANUAL" | "AUTO" | "IMPORT" | "CLEAR"] || log.type;
+
+                    const isSuccess = log.status === "SUCCESS";
+
+                    return (
+                      <div key={log.id} className={`p-4 flex items-start gap-3 text-xs transition-colors hover:bg-zinc-50/40 ${isSuccess ? "bg-white" : "bg-red-50/40"}`}>
+                        <div className="mt-0.5 shrink-0">
+                          {isSuccess ? (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black font-mono">✓</span>
+                          ) : (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black font-mono">!</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-4 mb-0.5">
+                            <span className={`font-black uppercase tracking-wider text-[10px] px-2 py-0.5 rounded border border-zinc-900 ${
+                              log.type === "MANUAL" ? "bg-blue-100 text-blue-900" :
+                              log.type === "AUTO" ? "bg-amber-100 text-amber-900" :
+                              log.type === "IMPORT" ? "bg-purple-100 text-purple-900" :
+                              "bg-red-100 text-red-900"
+                            }`}>
+                              {typeLabel}
+                            </span>
+                            <span className="text-[10px] font-mono text-zinc-500 font-medium">
+                              {new Date(log.timestamp).toLocaleString("tr-TR")}
+                            </span>
+                          </div>
+                          <p className="font-semibold text-zinc-750 break-words">{log.message}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
