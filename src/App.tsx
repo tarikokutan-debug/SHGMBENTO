@@ -152,6 +152,19 @@ export default function App() {
     localStorage.setItem("shgm_theme", newTheme);
   };
 
+  useEffect(() => {
+    try {
+      document.documentElement.classList.remove("theme-bento", "theme-thy", "theme-apple");
+      document.body.classList.remove("theme-bento", "theme-thy", "theme-apple");
+      
+      const themeClass = `theme-${theme.toLowerCase()}`;
+      document.documentElement.classList.add(themeClass);
+      document.body.classList.add(themeClass);
+    } catch (e) {
+      console.error("Failed to apply theme class:", e);
+    }
+  }, [theme]);
+
   const [settingsTab, setSettingsTab] = useState<"EMAILS" | "FEES" | "THEMES" | "DATA">("EMAILS");
 
   // Load local state initially
@@ -2053,7 +2066,7 @@ export default function App() {
             importFromJson={importFromJson}
             clearAllData={clearAllData}
             theme={theme}
-            setTheme={setTheme}
+            setTheme={changeTheme}
           />
         )}
       </main>
