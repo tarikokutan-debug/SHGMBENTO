@@ -48,8 +48,8 @@ interface SettingsViewProps {
   clearAllData: () => void;
   
   // Theme props
-  theme: "BENTO" | "THY" | "APPLE";
-  setTheme: (theme: "BENTO" | "THY" | "APPLE") => void;
+  theme: "THY" | "APPLE";
+  setTheme: (theme: "THY" | "APPLE") => void;
 
   // Backup history props
   backupLogs: any[];
@@ -288,27 +288,8 @@ export default function SettingsView({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Theme 1: BENTO */}
-            <div 
-              onClick={() => setTheme("BENTO")}
-              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "BENTO" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-black uppercase tracking-wider bg-zinc-200 border border-zinc-900 px-2 py-0.5 rounded font-mono text-zinc-800">Klasik Bento</span>
-                  {theme === "BENTO" && <Check size={16} className="text-zinc-900" />}
-                </div>
-                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Özgün, kalın siyah kenarlıklar ve neo-brutalist yüksek enerjili bento kutusu tasarımı.</p>
-              </div>
-              <div className="mt-8 border border-zinc-900 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                <div className="w-10 h-3 bg-zinc-900 rounded"></div>
-                <div className="w-full h-1 bg-zinc-200"></div>
-                <div className="w-1/2 h-1.5 bg-[#C8102E] rounded"></div>
-              </div>
-            </div>
-
-            {/* Theme 2: THY */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+            {/* Theme 1: THY */}
             <div 
               onClick={() => setTheme("THY")}
               className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "THY" ? "border-zinc-900 bg-zinc-50 ring-2 ring-red-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
@@ -329,7 +310,7 @@ export default function SettingsView({
               </div>
             </div>
 
-            {/* Theme 3: APPLE */}
+            {/* Theme 2: APPLE */}
             <div 
               onClick={() => setTheme("APPLE")}
               className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "APPLE" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}

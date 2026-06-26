@@ -138,16 +138,16 @@ export default function App() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // --- THEME SYSTEM ---
-  const [theme, setTheme] = useState<"BENTO" | "THY" | "APPLE">(() => {
+  const [theme, setTheme] = useState<"THY" | "APPLE">(() => {
     try {
       const saved = localStorage.getItem("shgm_theme");
-      return (saved === "BENTO" || saved === "THY" || saved === "APPLE") ? saved : "THY";
+      return (saved === "THY" || saved === "APPLE") ? saved : "THY";
     } catch {
       return "THY";
     }
   });
 
-  const changeTheme = (newTheme: "BENTO" | "THY" | "APPLE") => {
+  const changeTheme = (newTheme: "THY" | "APPLE") => {
     setTheme(newTheme);
     localStorage.setItem("shgm_theme", newTheme);
   };
@@ -192,8 +192,8 @@ export default function App() {
 
   useEffect(() => {
     try {
-      document.documentElement.classList.remove("theme-bento", "theme-thy", "theme-apple");
-      document.body.classList.remove("theme-bento", "theme-thy", "theme-apple");
+      document.documentElement.classList.remove("theme-thy", "theme-apple");
+      document.body.classList.remove("theme-thy", "theme-apple");
       
       const themeClass = `theme-${theme.toLowerCase()}`;
       document.documentElement.classList.add(themeClass);

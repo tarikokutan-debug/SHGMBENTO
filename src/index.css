@@ -2,7 +2,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Mulish", "Montserrat", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   @keyframes fade-in {
@@ -20,8 +20,89 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #fafafa;
+  background-color: #f8fafc;
   transition: background-color 0.3s ease;
+}
+
+/* ==========================================================================
+   GLOBAL THY (TURKISH AIRLINES) CORPORATE STYLING & ELIMINATION OF BENTO
+   ========================================================================== */
+
+/* 1. Reset bulky brutalist 2px black borders to high-end 1px corporate slate borders */
+.border-2 {
+  border-width: 1px !important;
+  border-color: #e2e8f0 !important;
+}
+.border-b-2 {
+  border-width: 0 0 1px 0 !important;
+  border-color: #f1f5f9 !important;
+}
+.border-t-2 {
+  border-width: 1px 0 0 0 !important;
+  border-color: #f1f5f9 !important;
+}
+
+/* 2. Map retro hard shadows to beautiful premium soft drop-shadows */
+.shadow-\[4px_4px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.02) !important;
+}
+.shadow-\[2px_2px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03) !important;
+}
+.shadow-\[2px_2px_0px_0px_rgba\(0\2c 0\2c 0\2c 1\)\] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+}
+.shadow-\[3px_3px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04) !important;
+}
+.hover\:shadow-\[6px_6px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\]:hover {
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08) !important;
+}
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* 3. Refine hover transition movements */
+.hover\:translate-x-\[-1px\]:hover,
+.hover\:translate-y-\[-1px\]:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* 4. Global Core Color Palette mapping (Midnight Navy and Deep Crimson) */
+.bg-\[\#C8102E\] {
+  background-color: #C8102E !important; /* THY Corporate Red */
+}
+.text-\[\#C8102E\] {
+  color: #C8102E !important;
+}
+.hover\:bg-red-700:hover {
+  background-color: #A30D26 !important;
+}
+.bg-zinc-900 {
+  background-color: #0B1930 !important; /* THY Navy Blue */
+}
+.hover\:bg-zinc-850:hover,
+.hover\:bg-gray-800:hover,
+.hover\:bg-zinc-800:hover {
+  background-color: #122544 !important;
+}
+.text-zinc-900 {
+  color: #0F172A !important;
+}
+.border-zinc-900 {
+  border-color: #E2E8F0 !important;
+}
+.bg-zinc-100 {
+  background-color: #F1F5F9 !important;
+}
+.bg-zinc-50 {
+  background-color: #F8FAFC !important;
+}
+.text-zinc-650 {
+  color: #475569 !important;
+}
+.text-zinc-550 {
+  color: #64748B !important;
 }
 
 /* ==========================================
@@ -35,7 +116,6 @@ body {
   background-color: #f8fafc;
 }
 
-/* Override brutalist 2px black borders to sleek corporate 1px borders */
 .theme-thy .border-2 {
   border-width: 1px !important;
   border-color: #e2e8f0 !important;
@@ -49,7 +129,6 @@ body {
   border-color: #f1f5f9 !important;
 }
 
-/* Replace retro shadows with elegant soft shadows */
 .theme-thy .shadow-\[4px_4px_0px_0px_rgba\(24\2c 24\2c 27\2c 1\)\] {
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04), 0 2px 4px rgba(15, 23, 42, 0.02) !important;
 }
@@ -67,49 +146,6 @@ body {
 }
 .theme-thy .shadow-2xl {
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12) !important;
-}
-
-/* Prevent translation effects that look too retro */
-.theme-thy .hover\:translate-x-\[-1px\]:hover,
-.theme-thy .hover\:translate-y-\[-1px\]:hover {
-  transform: translateY(-2px) !important;
-}
-
-/* THY Red & Deep Midnight Navy Color Overrides */
-.theme-thy .bg-\[\#C8102E\] {
-  background-color: #C8102E !important; /* THY Corporate Red */
-}
-.theme-thy .text-\[\#C8102E\] {
-  color: #C8102E !important;
-}
-.theme-thy .hover\:bg-red-700:hover {
-  background-color: #A30D26 !important;
-}
-.theme-thy .bg-zinc-900 {
-  background-color: #0B1930 !important; /* THY Navy Blue */
-}
-.theme-thy .hover\:bg-zinc-850:hover,
-.theme-thy .hover\:bg-gray-800:hover,
-.theme-thy .hover\:bg-zinc-800:hover {
-  background-color: #122544 !important;
-}
-.theme-thy .text-zinc-900 {
-  color: #0F172A !important;
-}
-.theme-thy .border-zinc-900 {
-  border-color: #E2E8F0 !important;
-}
-.theme-thy .bg-zinc-100 {
-  background-color: #F1F5F9 !important;
-}
-.theme-thy .bg-zinc-50 {
-  background-color: #F8FAFC !important;
-}
-.theme-thy .text-zinc-650 {
-  color: #475569 !important;
-}
-.theme-thy .text-zinc-550 {
-  color: #64748B !important;
 }
 
 /* ==========================================
