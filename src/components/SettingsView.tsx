@@ -130,11 +130,11 @@ export default function SettingsView({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-blue-50 border-2 border-zinc-900 p-5 rounded-2xl flex flex-col items-center justify-center shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
               <span className="text-zinc-500 text-[10px] font-black uppercase font-mono tracking-wider mb-1">Toplam Istasyon</span>
-              <span className="text-4xl font-extrabold italic text-zinc-900 font-mono">{Object.keys(stationEmails).length}</span>
+              <span className="text-4xl font-extrabold text-zinc-900 font-mono">{Object.keys(stationEmails).length}</span>
             </div>
             <div className="bg-emerald-50 border-2 border-zinc-900 p-5 rounded-2xl flex flex-col items-center justify-center shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
               <span className="text-zinc-500 text-[10px] font-black uppercase font-mono tracking-wider mb-1">Kayitli Mail Adresi</span>
-              <span className="text-4xl font-extrabold italic text-zinc-900 font-mono">{Object.values(stationEmails).reduce((acc: number, arr: any) => acc + arr.length, 0)}</span>
+              <span className="text-4xl font-extrabold text-zinc-900 font-mono">{Object.values(stationEmails).reduce((acc: number, arr: any) => acc + arr.length, 0)}</span>
             </div>
           </div>
 
@@ -198,7 +198,7 @@ export default function SettingsView({
                       </div>
                     ))
                   ) : (
-                    <div className="text-xs text-zinc-400 italic">Kayitli mail yok.</div>
+                    <div className="text-xs text-zinc-400">Kayitli mail yok.</div>
                   )}
                 </div>
                 <div className="flex gap-1 mt-auto shrink-0 relative">

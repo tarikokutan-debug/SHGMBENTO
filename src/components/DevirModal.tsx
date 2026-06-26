@@ -45,7 +45,7 @@ export default function DevirModal({
                 </div>
               ))
             ) : (
-              <div className="text-center text-gray-400 italic py-4">Devredilecek uygun kriterde islem bulunmamaktadir.</div>
+              <div className="text-center text-gray-400 py-4">Devredilecek uygun kriterde islem bulunmamaktadir.</div>
             )}
           </div>
         </div>

@@ -28,7 +28,7 @@ export default function ReportingView({
             </div>
             <span className="w-3 h-3 rounded-full bg-emerald-500 border border-zinc-900" />
           </div>
-          <div className="text-3xl font-extrabold italic text-zinc-900 font-mono leading-none">{reportMetrics.totalApproved}</div>
+          <div className="text-3xl font-extrabold text-zinc-900 font-mono leading-none">{reportMetrics.totalApproved}</div>
         </div>
 
         <div className="bg-purple-50 p-5 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-36 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_rgba(24,24,27,1)] transition-all">
@@ -61,7 +61,7 @@ export default function ReportingView({
             </div>
             <span className="w-3 h-3 rounded-full bg-amber-500 border border-zinc-900" />
           </div>
-          <div className="text-3xl font-extrabold italic text-zinc-900 font-mono leading-none">{reportMetrics.pendingApprovals}</div>
+          <div className="text-3xl font-extrabold text-zinc-900 font-mono leading-none">{reportMetrics.pendingApprovals}</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-36 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_rgba(24,24,27,1)] transition-all">
@@ -72,7 +72,7 @@ export default function ReportingView({
             </div>
             <span className="w-3 h-3 rounded-full bg-indigo-500 border border-zinc-900" />
           </div>
-          <div className="text-3xl font-extrabold italic text-zinc-900 font-mono leading-none">{reportMetrics.totalSchedules}</div>
+          <div className="text-3xl font-extrabold text-zinc-900 font-mono leading-none">{reportMetrics.totalSchedules}</div>
         </div>
 
         <div className="bg-orange-50 p-5 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-36 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_rgba(24,24,27,1)] transition-all">
@@ -83,7 +83,7 @@ export default function ReportingView({
             </div>
             <span className="w-3 h-3 rounded-full bg-orange-400 border border-zinc-900" />
           </div>
-          <div className="text-3xl font-extrabold italic text-zinc-900 font-mono leading-none">{reportMetrics.cancelledCount}</div>
+          <div className="text-3xl font-extrabold text-zinc-900 font-mono leading-none">{reportMetrics.cancelledCount}</div>
         </div>
 
         <div className="bg-red-50 p-5 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-36 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[5px_5px_0px_0px_rgba(24,24,27,1)] transition-all">
@@ -94,7 +94,7 @@ export default function ReportingView({
             </div>
             <span className="w-3 h-3 rounded-full bg-red-500 border border-zinc-900" />
           </div>
-          <div className="text-3xl font-extrabold italic text-zinc-900 font-mono leading-none">{reportMetrics.rejectedCount}</div>
+          <div className="text-3xl font-extrabold text-zinc-900 font-mono leading-none">{reportMetrics.rejectedCount}</div>
         </div>
       </div>
 

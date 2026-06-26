@@ -105,7 +105,7 @@ export default function MailPreviewModal({
                     </table>
                   </div>
                 ) : (
-                  <span className="text-gray-400 italic my-3 block">[Veri tablosu buraya gelecek...]</span>
+                  <span className="text-gray-400 my-3 block">[Veri tablosu buraya gelecek...]</span>
                 )}
                 <p>Requirements:<br />1. Both the AWB and Invoice must be signed and stamped.<br />2. Please ensure the AWB includes the IATA Agent's Code.</p><br /><p>Thank you in advance for your cooperation.</p>
               </div>

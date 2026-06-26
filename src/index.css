@@ -3,7 +3,7 @@
 
 @theme {
   --font-sans: "Mulish", "Montserrat", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "Mulish", "Montserrat", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   @keyframes fade-in {
     from {

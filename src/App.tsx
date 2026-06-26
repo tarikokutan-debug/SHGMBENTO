@@ -1342,7 +1342,7 @@ export default function App() {
               <Plane className="h-5 w-5 text-white transform -rotate-45" strokeWidth={3} />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase italic text-zinc-900">SHGM Takip Engine</h1>
+              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase text-zinc-900">SHGM Takip Engine</h1>
               <p className="text-[9px] text-zinc-500 font-mono uppercase tracking-wider leading-none">v5.6.2 • PRODUCTION READY</p>
             </div>
           </div>
@@ -1407,12 +1407,12 @@ export default function App() {
             {/* Üst Başlık ve Hızlı Eylemler */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 border-2 border-zinc-900 rounded-2xl shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
               <div>
-                <h2 className="text-2xl font-black tracking-tight uppercase italic text-zinc-950 flex items-center gap-2">
+                <h2 className="text-2xl font-black tracking-tight uppercase text-zinc-950 flex items-center gap-2">
                   <Plane className="transform -rotate-45 text-[#C8102E] h-6 w-6 shrink-0" strokeWidth={3} />
                   Operasyon & Takip Masası
                 </h2>
                 <p className="text-xs text-zinc-500 font-mono uppercase tracking-wide mt-1">
-                  Onay süreçlerinin canlı takibi, bento özetleri ve e-tablo yönetimi tek ekranda.
+                  Onay süreçlerinin canlı takibi, kurumsal özetler ve e-tablo yönetimi tek ekranda.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3 w-full md:w-auto">
@@ -1640,7 +1640,7 @@ export default function App() {
                               ))}
                             </div>
                           ) : (
-                            <div className="text-center py-8 text-[11px] text-zinc-400 italic">Sol tarafa metin yapıştırdığınızda otomatik olarak burada listelenecektir.</div>
+                            <div className="text-center py-8 text-[11px] text-zinc-400">Sol tarafa metin yapıştırdığınızda otomatik olarak burada listelenecektir.</div>
                           )}
                         </div>
                       </div>
@@ -1712,7 +1712,7 @@ export default function App() {
                         <span className="text-zinc-500 text-[9px] font-black uppercase tracking-wider font-mono">BEKLEYEN (AFTN)</span>
                         <Clock className="text-orange-500" size={14} />
                       </div>
-                      <div className="text-2xl font-black italic text-zinc-900 font-mono leading-none">{reportMetrics.pendingApprovals}</div>
+                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.pendingApprovals}</div>
                     </div>
 
                     {/* Reddedilen */}
@@ -1736,7 +1736,7 @@ export default function App() {
                         <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">REDDEDİLEN</span>
                         <Ban className="text-red-500" size={14} />
                       </div>
-                      <div className="text-2xl font-black italic text-zinc-900 font-mono leading-none">{reportMetrics.rejectedCount}</div>
+                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.rejectedCount}</div>
                     </div>
 
                     {/* İptal Edilen */}
@@ -1760,7 +1760,7 @@ export default function App() {
                         <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">İPTAL EDİLEN</span>
                         <XCircle className="text-amber-600" size={14} />
                       </div>
-                      <div className="text-2xl font-black italic text-zinc-900 font-mono leading-none">{reportMetrics.cancelledCount}</div>
+                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.cancelledCount}</div>
                     </div>
 
                     {/* Onaylanan */}
@@ -1784,7 +1784,7 @@ export default function App() {
                         <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">ONAYLANAN</span>
                         <CheckCircle className="text-emerald-500" size={14} />
                       </div>
-                      <div className="text-2xl font-black italic text-zinc-900 font-mono leading-none">{reportMetrics.totalApproved}</div>
+                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.totalApproved}</div>
                     </div>
                   </div>
 
@@ -2021,15 +2021,15 @@ export default function App() {
                           </div>
                         )}
                         <div className="flex justify-between items-start mb-2">
-                          <div className="font-extrabold text-zinc-900 text-sm tracking-tight uppercase italic font-mono">{title}</div>
+                          <div className="font-extrabold text-zinc-900 text-sm tracking-tight uppercase">{title}</div>
                         </div>
                         <div className="mb-auto">
                           {isBulkGroup ? (
                             <div className="text-xs text-zinc-650 leading-relaxed mt-2 font-medium">
-                              <span className="font-bold text-zinc-800 block mb-1 uppercase font-mono text-[10px] tracking-wider">{group.flights?.length || 0} Ucus Iceriyor:</span>
+                              <span className="font-bold text-zinc-800 block mb-1 uppercase text-[10px] tracking-wider">{group.flights?.length || 0} Ucus Iceriyor:</span>
                               {group.flights.slice(0, 4).map((f: any) => `${String(f.al || "TK")}${f.flNo}`).join(", ")}
                               {group.flights.length > 4 ? (
-                                <span className="text-zinc-400 italic"> ve {group.flights.length - 4} daha...</span>
+                                <span className="text-zinc-400"> ve {group.flights.length - 4} daha...</span>
                               ) : (
                                 ""
                               )}
@@ -2037,7 +2037,7 @@ export default function App() {
                           ) : (
                             <>
                               <div className="flex justify-between items-center relative py-2 mb-1">
-                                <div className="text-2xl font-black text-zinc-900 font-mono bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.orig || "")}</div>
+                                <div className="text-2xl font-black text-zinc-900 bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.orig || "")}</div>
                                 <div className="flex-1 flex items-center px-4">
                                   <div className="w-full h-[2px] border-b-2 border-dashed border-zinc-900 relative">
                                     <Plane
@@ -2046,9 +2046,9 @@ export default function App() {
                                     />
                                   </div>
                                 </div>
-                                <div className="text-2xl font-black text-zinc-900 font-mono bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.dest || "")}</div>
+                                <div className="text-2xl font-black text-zinc-900 bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.dest || "")}</div>
                               </div>
-                              <div className="flex justify-between items-center text-xs font-bold text-zinc-500 font-mono mt-1">
+                              <div className="flex justify-between items-center text-xs font-bold text-zinc-500 mt-1">
                                 <span>{String(group.flights[0]?.date || "")}</span>
                                 <span className="bg-zinc-100 border border-zinc-300 px-1 py-0.5 rounded">
                                   {String(group.flights[0]?.std || "")} - {String(group.flights[0]?.sta || "")}
@@ -2060,8 +2060,8 @@ export default function App() {
                         
                         {/* NOTES FIELD DISPLAY (Recommendation 4) */}
                         {group.flights && group.flights.some((f: any) => f.notes) && (
-                          <div className="mt-3 p-2.5 bg-blue-50/50 border border-blue-200/60 rounded-xl text-[11px] text-zinc-650 font-medium italic">
-                            <span className="font-bold text-zinc-700 not-italic block mb-0.5 text-[9px] uppercase tracking-wider font-mono">Takip Notu:</span>
+                          <div className="mt-3 p-2.5 bg-blue-50/50 border border-blue-200/60 rounded-xl text-[11px] text-zinc-650 font-medium">
+                            <span className="font-bold text-zinc-700 block mb-0.5 text-[9px] uppercase tracking-wider">Takip Notu:</span>
                             {group.flights.find((f: any) => f.notes)?.notes}
                           </div>
                         )}
