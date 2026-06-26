@@ -624,13 +624,59 @@ export default function App() {
     }
   };
 
+  const toLocalDateTimeString = (timestamp: number | null | undefined) => {
+    if (!timestamp) return "";
+    try {
+      const date = new Date(timestamp);
+      const tzOffset = date.getTimezoneOffset() * 60000; // in ms
+      const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
+      return localISOTime;
+    } catch {
+      return "";
+    }
+  };
+
+  const fromLocalDateTimeString = (dateTimeStr: string) => {
+    if (!dateTimeStr) return null;
+    try {
+      const d = new Date(dateTimeStr);
+      return isNaN(d.getTime()) ? null : d.getTime();
+    } catch {
+      return null;
+    }
+  };
+
   const saveEditGroup = (e: React.FormEvent) => {
     e.preventDefault();
+    const appMadeTs = fromLocalDateTimeString(editGroupData.appMadeDate);
+    const approvedTs = fromLocalDateTimeString(editGroupData.approvedDate);
+
     setFlights((prev) =>
       prev.map((f) => {
         const editedFlight = editGroupData.flights.find((ef: any) => ef.id === f.id);
         if (editedFlight) {
           const normalized = normalizeDate(editedFlight.date);
+          const updatedTimestamps = { ...(f.timestamps || {}) };
+
+          if (appMadeTs) {
+            updatedTimestamps.APP_MADE = appMadeTs;
+          } else {
+            delete updatedTimestamps.APP_MADE;
+          }
+
+          if (approvedTs) {
+            updatedTimestamps.APPROVED = approvedTs;
+          } else {
+            delete updatedTimestamps.APPROVED;
+          }
+
+          let newStatus = f.status;
+          if (approvedTs && (f.status === "PENDING" || f.status === "APP_MADE" || !f.status)) {
+            newStatus = "APPROVED";
+          } else if (!approvedTs && f.status === "APPROVED") {
+            newStatus = appMadeTs ? "APP_MADE" : "PENDING";
+          }
+
           return {
             ...f,
             al: String(editedFlight.al || "").toUpperCase(),
@@ -646,6 +692,8 @@ export default function App() {
             isDg: Boolean(editedFlight.isDg),
             aftnNo: String(editGroupData.aftnNo || "").toUpperCase(),
             notes: String(editedFlight.notes || ""),
+            timestamps: updatedTimestamps,
+            status: newStatus,
           };
         }
         return f;
@@ -656,10 +704,15 @@ export default function App() {
 
   const openEditModal = (group: any) => {
     if (!group || !group.flights || group.flights.length === 0) return;
+    const firstAppMade = group.flights.find((f: any) => f.timestamps?.APP_MADE)?.timestamps?.APP_MADE || null;
+    const firstApproved = group.flights.find((f: any) => f.timestamps?.APPROVED)?.timestamps?.APPROVED || null;
+
     setEditGroupData({
       groupId: group.groupId,
       aftnNo: group.aftnNo !== "-" ? group.aftnNo : "",
       appType: group.flights[0]?.appType || "yeniPermi",
+      appMadeDate: toLocalDateTimeString(firstAppMade),
+      approvedDate: toLocalDateTimeString(firstApproved),
       flights: JSON.parse(JSON.stringify(group.flights || [])),
     });
     setIsEditModalOpen(true);
@@ -1107,6 +1160,10 @@ export default function App() {
         }
 
         if (dateToUse && !isNaN(dateToUse.getTime())) {
+          // Filter out future dates to prevent polluting the trend (e.g., 2028)
+          if (dateToUse > currentDate) {
+            return;
+          }
           const mY = `${String(dateToUse.getMonth() + 1).padStart(2, "0")}.${dateToUse.getFullYear()}`;
           if (!months[mY]) months[mY] = { aftns: new Map() };
           const aftn = String(f.aftnNo).trim().toUpperCase();
@@ -2284,7 +2341,27 @@ export default function App() {
                 <X size={20} />
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-6 bg-gray-50/50 justify-between">
+            <div className="flex-1 overflow-auto p-6 bg-gray-50/50 flex flex-col">
+              {(() => {
+                const firstAppMade = selectedArchiveGroup.flights.find((f: any) => f.timestamps?.APP_MADE)?.timestamps?.APP_MADE;
+                const firstApproved = selectedArchiveGroup.flights.find((f: any) => f.timestamps?.APPROVED)?.timestamps?.APPROVED;
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">BAŞVURU TARİHİ & SAATİ</span>
+                      <span className="text-sm font-bold text-gray-800 font-mono">
+                        {firstAppMade ? new Date(firstAppMade).toLocaleString("tr-TR") : "Girilmemiş / Mevcut Değil"}
+                      </span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">ONAY GELİŞ TARİHİ & SAATİ</span>
+                      <span className="text-sm font-bold text-gray-800 font-mono">
+                        {firstApproved ? new Date(firstApproved).toLocaleString("tr-TR") : "Girilmemiş / Henüz Onaylanmadı"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-100">

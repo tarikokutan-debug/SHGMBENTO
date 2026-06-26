@@ -38,8 +38,8 @@ export default function EditGroupModal({
         </div>
         <form onSubmit={onSave} className="flex flex-col flex-1 overflow-hidden">
           <div className="p-6 overflow-y-auto flex-1 bg-gray-50/50 space-y-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="w-full md:w-1/3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="w-full">
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">AFTN Numarasi</label>
                 <input
                   type="text"
@@ -48,7 +48,7 @@ export default function EditGroupModal({
                   onChange={e => setEditGroupData({ ...editGroupData, aftnNo: String(e.target.value).toUpperCase() })}
                 />
               </div>
-              <div className="w-full md:w-1/3">
+              <div className="w-full">
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Basvuru Turu</label>
                 <select
                   className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-medium"
@@ -59,6 +59,24 @@ export default function EditGroupModal({
                     <option key={t.id} value={t.id}>{t.label}</option>
                   ))}
                 </select>
+              </div>
+              <div className="w-full">
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Başvuru Tarihi</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-medium font-mono"
+                  value={editGroupData.appMadeDate || ""}
+                  onChange={e => setEditGroupData({ ...editGroupData, appMadeDate: e.target.value })}
+                />
+              </div>
+              <div className="w-full">
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Onay Geliş Tarihi</label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-medium font-mono"
+                  value={editGroupData.approvedDate || ""}
+                  onChange={e => setEditGroupData({ ...editGroupData, approvedDate: e.target.value })}
+                />
               </div>
             </div>
             <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto shadow-sm pb-4">
