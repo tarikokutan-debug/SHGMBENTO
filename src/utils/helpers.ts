@@ -104,48 +104,164 @@ export const formatTimestamp = (ts?: number): string => {
   return `${d.toLocaleDateString("tr-TR")} ${d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
 };
 
+export const extractStation = (str: string): string => {
+  if (!str) return "";
+  const cleaned = String(str).trim();
+  if (cleaned.includes("-")) {
+    const parts = cleaned.split("-");
+    for (const part of parts) {
+      const p = part.trim();
+      if (/^[A-Za-z]{3}$/.test(p)) {
+        return p.toUpperCase();
+      }
+    }
+  }
+  const match = cleaned.match(/\b[A-Za-z]{3}\b/);
+  if (match) {
+    return match[0].toUpperCase();
+  }
+  return cleaned.substring(0, 3).toUpperCase();
+};
+
+export const parseFlightNumber = (str: string): { al: string; flNo: string } => {
+  if (!str) return { al: "TK", flNo: "" };
+  const cleaned = String(str).trim().toUpperCase();
+  const match = cleaned.match(/^(THY|TK|[A-Z]{2,3})\s*(\d+[A-Z]?)$/);
+  if (match) {
+    const code = match[1];
+    const al = code === "THY" ? "TK" : code;
+    return { al, flNo: match[2] };
+  }
+  const digitMatch = cleaned.match(/^(\d+[A-Z]?)$/);
+  if (digitMatch) {
+    return { al: "TK", flNo: digitMatch[1] };
+  }
+  return { al: "TK", flNo: cleaned };
+};
+
 export const parseFlightRow = (line: string): any | null => {
-  const separator = line.includes("\t") ? "\t" : line.includes(";") ? ";" : "";
-  if (!separator) return null;
-  const cols = line.split(separator).map(c => String(c || "").trim());
-  if (cols.length < 5 || (cols[1] || "").toUpperCase() === "FLNO") return null;
-  
+  if (!line || !line.trim()) return null;
+  const rawLine = line.trim();
+
+  const upper = rawLine.toUpperCase();
+  if (upper.includes("FLNO") || upper.includes("CALLSIGN") || upper.includes("SIRA NO") || upper.startsWith("NO\t")) {
+    return null;
+  }
+
+  let separator: string | RegExp = "\t";
+  if (rawLine.includes("\t")) {
+    separator = "\t";
+  } else if (rawLine.includes(";")) {
+    separator = ";";
+  } else if (/\s{2,}/.test(rawLine)) {
+    separator = /\s{2,}/;
+  } else {
+    separator = " ";
+  }
+
+  const cols = rawLine.split(separator).map((c) => String(c || "").trim()).filter((c) => c !== "");
+  if (cols.length < 3) return null;
+
+  const isFirstRowNo = /^\d{1,3}$/.test(cols[0]);
+  const colShift = isFirstRowNo && cols.length >= 6 ? 1 : 0;
+
+  const flCol = cols[0 + colShift];
+  const origCol = cols[1 + colShift];
+
+  if (flCol && origCol) {
+    const isTime = (str: string) => /^\d{1,2}:\d{2}$/.test(str);
+    const isDate = (str: string) => /^\d{1,2}[\.\/-]\d{1,2}[\.\/-]\d{2,4}$/.test(str);
+
+    const colA = cols[2 + colShift] || "";
+    const colB = cols[3 + colShift] || "";
+
+    if ((isTime(colA) || isDate(colA)) && (isTime(colB) || isDate(colB) || cols.length >= 5 + colShift)) {
+      const { al, flNo } = parseFlightNumber(flCol);
+      const orig = extractStation(origCol);
+
+      let std = "";
+      let date = "";
+
+      if (isTime(colA)) std = colA;
+      else if (isDate(colA)) date = normalizeDate(colA);
+
+      if (isTime(colB)) std = colB;
+      else if (isDate(colB)) date = normalizeDate(colB);
+
+      const destCol = cols[4 + colShift] || "";
+      const dest = extractStation(destCol);
+
+      const staCol = cols[5 + colShift] || "";
+      let sta = "";
+      if (isTime(staCol)) {
+        sta = staCol;
+      }
+
+      if (!date) {
+        for (let i = 0; i < cols.length; i++) {
+          if (isDate(cols[i])) {
+            date = normalizeDate(cols[i]);
+            break;
+          }
+        }
+      }
+
+      if (flNo && orig && dest) {
+        const day = getDayName(date);
+        return {
+          al,
+          flNo,
+          date,
+          day,
+          orig,
+          dest,
+          std,
+          sta,
+          awbNo: "",
+          isDg: false,
+        };
+      }
+    }
+  }
+
   let date = "";
   let day = "";
   let orig = "IST";
   let dest = "";
   let std = "";
   let sta = "";
-  
+
   const isFormat1 = cols.length > 9 || /\d/.test(cols[3] || "");
   if (isFormat1) {
     const start = normalizeDate(cols[2]);
     const end = normalizeDate(cols[3]);
-    date = (start && end && start !== end) ? `${start} - ${end}` : start;
+    date = start && end && start !== end ? `${start} - ${end}` : start;
     day = cols[4] ? cols[4].replace(/\./g, "-") : getDayName(start);
-    orig = cols[5]?.toUpperCase() || "IST";
-    std = cols[6] || ""; 
+    orig = extractStation(cols[5]) || "IST";
+    std = cols[6] || "";
     sta = cols[7] || "";
-    dest = (cols[9] || cols[8] || "").toUpperCase();
+    dest = extractStation(cols[9] || cols[8] || "");
   } else {
     date = normalizeDate(cols[2]);
     day = cols[3] || getDayName(date);
-    orig = cols[4]?.toUpperCase() || "IST";
-    std = cols[5] || ""; 
+    orig = extractStation(cols[4]) || "IST";
+    std = cols[5] || "";
     sta = cols[6] || "";
-    dest = (cols[8] || cols[7] || "").toUpperCase();
+    dest = extractStation(cols[8] || cols[7] || "");
   }
-  
-  return { 
-    al: cols[0] || "TK", 
-    flNo: String(cols[1] || "").toUpperCase(), 
-    date, 
-    day, 
-    orig, 
-    dest, 
-    std, 
-    sta, 
-    awbNo: "", 
-    isDg: false 
+
+  const { al, flNo } = parseFlightNumber(cols[1] ? cols[1] : cols[0]);
+
+  return {
+    al: al || cols[0] || "TK",
+    flNo: flNo || String(cols[1] || "").toUpperCase(),
+    date,
+    day,
+    orig,
+    dest,
+    std,
+    sta,
+    awbNo: "",
+    isDg: false,
   };
 };
