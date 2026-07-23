@@ -136,7 +136,7 @@ export const parseFlightNumber = (str: string): { al: string; flNo: string } => 
   if (digitMatch) {
     return { al: "TK", flNo: digitMatch[1] };
   }
-  return { al: "TK", flNo: cleaned };
+  return { al: "TK", flNo: "" };
 };
 
 export const parseFlightRow = (line: string): any | null => {
@@ -144,7 +144,13 @@ export const parseFlightRow = (line: string): any | null => {
   const rawLine = line.trim();
 
   const upper = rawLine.toUpperCase();
-  if (upper.includes("FLNO") || upper.includes("CALLSIGN") || upper.includes("SIRA NO") || upper.startsWith("NO\t")) {
+  if (
+    upper.includes("FLNO") ||
+    upper.includes("CALLSIGN") ||
+    upper.includes("SIRA NO") ||
+    upper.startsWith("NO\t") ||
+    upper.includes("HAVALIMANLARI")
+  ) {
     return null;
   }
 
@@ -206,7 +212,7 @@ export const parseFlightRow = (line: string): any | null => {
         }
       }
 
-      if (flNo && orig && dest) {
+      if (flNo && /^\d+[A-Z]?$/.test(flNo) && orig && dest) {
         const day = getDayName(date);
         return {
           al,
@@ -252,9 +258,13 @@ export const parseFlightRow = (line: string): any | null => {
 
   const { al, flNo } = parseFlightNumber(cols[1] ? cols[1] : cols[0]);
 
+  if (!flNo || !/^\d+[A-Z]?$/.test(flNo)) {
+    return null;
+  }
+
   return {
     al: al || cols[0] || "TK",
-    flNo: flNo || String(cols[1] || "").toUpperCase(),
+    flNo,
     date,
     day,
     orig,
