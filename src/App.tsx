@@ -1509,7 +1509,7 @@ export default function App() {
               <Plane className="h-5 w-5 text-white transform -rotate-45" strokeWidth={3} />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase text-zinc-900">SHGM Takip Engine</h1>
+              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase text-zinc-900">SHGM DASHBOARD</h1>
               <p className="text-[9px] text-zinc-500 font-mono uppercase tracking-wider leading-none">v5.6.2 • PRODUCTION READY</p>
             </div>
           </div>
@@ -2588,7 +2588,7 @@ export default function App() {
 
       {/* FOOTER BAR */}
       <footer className="fixed bottom-0 left-0 right-0 p-4 px-6 flex justify-between items-center z-30 pointer-events-none">
-        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">© 2026 Cargo Slot Planning</p>
+        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">2026 CARGO SLOT - TOKUTAN@THY.COM</p>
         <div className="flex items-center gap-3 pointer-events-auto">
           {renderSaveStatusBadge()}
           <p className="text-[10px] text-gray-400 font-medium opacity-55 hover:opacity-100 cursor-help transition-opacity">Build: v5.6.2</p>
