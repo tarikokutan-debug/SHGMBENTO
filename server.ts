@@ -4,22 +4,30 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 
 // Default shared data path on server/disk
-let serverConfiguredSharedPath = process.env.SHARED_DATA_PATH || path.join(process.cwd(), "shared_data", "shgm_database.json");
+let serverConfiguredSharedPath = process.env.SHARED_DATA_PATH || path.join(process.cwd(), "shared_data", "shgmdata.json");
 
 function resolveSharedPath(customPath?: string): string {
   if (customPath && typeof customPath === "string" && customPath.trim().length > 0) {
-    return path.isAbsolute(customPath) ? customPath : path.join(process.cwd(), customPath);
+    const trimmed = customPath.trim();
+    if (process.platform !== "win32") {
+      if (trimmed.startsWith("\\\\") || /^[a-zA-Z]:[\\/]/.test(trimmed)) {
+        return path.join(process.cwd(), "shared_data", "shgmdata.json");
+      }
+    }
+    return path.isAbsolute(trimmed) ? trimmed : path.join(process.cwd(), trimmed);
   }
   return serverConfiguredSharedPath;
 }
 
 function ensureDirectoryExistence(filePath: string) {
-  const dirname = path.dirname(filePath);
-  if (fs.existsSync(dirname)) {
-    return true;
+  try {
+    const dirname = path.dirname(filePath);
+    if (!fs.existsSync(dirname)) {
+      fs.mkdirSync(dirname, { recursive: true });
+    }
+  } catch (err) {
+    console.warn("[FileSync] Directory check/creation warning:", err);
   }
-  ensureDirectoryExistence(dirname);
-  fs.mkdirSync(dirname, { recursive: true });
 }
 
 async function startServer() {
@@ -229,12 +237,18 @@ async function startServer() {
     console.log(`[System] Vite middleware loaded in development mode.`);
   } else {
     // Serve static files in production
-    const distPath = path.join(process.cwd(), "dist");
+    const candidateDistPaths = [
+      __dirname, // inside bundled dist/server.cjs, __dirname is already the dist folder
+      path.join(__dirname, "dist"),
+      path.join(process.cwd(), "dist")
+    ];
+    const distPath = candidateDistPaths.find((p) => fs.existsSync(path.join(p, "index.html"))) || path.join(process.cwd(), "dist");
+    
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
-    console.log(`[System] Static file serving loaded in production mode.`);
+    console.log(`[System] Static file serving loaded from: ${distPath}`);
   }
 
   app.listen(PORT, "0.0.0.0", () => {

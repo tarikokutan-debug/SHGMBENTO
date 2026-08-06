@@ -10,21 +10,20 @@ const PORT = process.env.PORT || 3000;
 const SERVER_URL = `http://localhost:${PORT}`;
 
 function startLocalServer() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const serverScript = path.join(__dirname, "dist", "server.cjs");
       if (fs.existsSync(serverScript)) {
-        console.log("[Electron] Starting bundled server process:", serverScript);
-        serverProcess = fork(serverScript, [], {
-          env: { ...process.env, NODE_ENV: "production", PORT: String(PORT) },
-          stdio: "inherit",
-        });
+        console.log("[Electron] Starting bundled server directly in main process:", serverScript);
+        process.env.NODE_ENV = "production";
+        process.env.PORT = String(PORT);
+        require(serverScript);
       } else {
-        console.log("[Electron] Server script not found at dist/server.cjs, assuming external dev server on port " + PORT);
+        console.log("[Electron] Server script not found at dist/server.cjs");
       }
-      setTimeout(resolve, 1500);
+      setTimeout(resolve, 500);
     } catch (err) {
-      console.error("[Electron] Failed to start local server process:", err);
+      console.error("[Electron] Failed to load local server module:", err);
       resolve();
     }
   });
@@ -44,16 +43,21 @@ async function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "electron-preload.js"),
+      webSecurity: false, // Allows local file loading & network UNC path access in desktop
     },
     titleBarStyle: "hiddenInset",
     autoHideMenuBar: false,
   });
 
-  // Load app from local web server
-  mainWindow.loadURL(SERVER_URL).catch(() => {
-    setTimeout(() => {
-      mainWindow.loadURL(SERVER_URL);
-    }, 2000);
+  // Load app from local web server or fallback to local index.html
+  mainWindow.loadURL(SERVER_URL).catch((err) => {
+    console.warn("[Electron] loadURL failed, trying fallback to index.html:", err);
+    const indexPath = path.join(__dirname, "dist", "index.html");
+    if (fs.existsSync(indexPath)) {
+      mainWindow.loadFile(indexPath);
+    } else {
+      setTimeout(() => mainWindow.loadURL(SERVER_URL), 1000);
+    }
   });
 
   mainWindow.on("closed", () => {

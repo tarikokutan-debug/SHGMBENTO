@@ -388,7 +388,7 @@ export default function App() {
           }
         }
       } catch (err: any) {
-        console.error("Shared file sync check failed:", err);
+        console.warn("Shared file sync check warning:", err?.message || err);
       } finally {
         setIsSyncing(false);
       }
