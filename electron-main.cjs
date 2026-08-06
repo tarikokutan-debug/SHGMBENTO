@@ -39,7 +39,7 @@ async function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: "SHGM İzin Takip Sistemi - Masaüstü",
-    icon: path.join(__dirname, "assets", "icon.png"),
+    icon: fs.existsSync(path.join(__dirname, "assets", "icon.png")) ? path.join(__dirname, "assets", "icon.png") : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

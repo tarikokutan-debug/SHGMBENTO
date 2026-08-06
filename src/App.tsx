@@ -152,9 +152,6 @@ export default function App() {
   const [dateFilter, setDateFilter] = useState("");
   const [settingsSearch, setSettingsSearch] = useState("");
 
-  // Auto Backup Reminder State
-  const [isBackupReminderOpen, setIsBackupReminderOpen] = useState(false);
-
   // Settings State Managers
   const [newStationCode, setNewStationCode] = useState("");
   const [newStationEmail, setNewStationEmail] = useState("");
@@ -252,11 +249,13 @@ export default function App() {
   }, []);
 
   // --- SHARED FILE & ELECTRON 15S AUTO SYNC ENGINE ---
+  const DEFAULT_AVRASYA_PATH = "\\\\Avrasya\\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\\MD_KARGO_TARIFE\\04_Slot\\Slot_Otomasyonlari\\SHGM_Takip\\shgmdata.json";
+
   const [sharedFilePath, setSharedFilePath] = useState<string>(() => {
     try {
-      return localStorage.getItem("shgm_shared_file_path") || "shared_data/shgm_database.json";
+      return localStorage.getItem("shgm_shared_file_path") || DEFAULT_AVRASYA_PATH;
     } catch {
-      return "shared_data/shgm_database.json";
+      return DEFAULT_AVRASYA_PATH;
     }
   });
 
@@ -519,30 +518,7 @@ export default function App() {
 
 
 
-  // Notifications and devir reminders setup
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const backupInterval = setInterval(() => {
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        try {
-          new Notification("SHGM Takip - Yedekleme Hatirlatmasi", {
-            body: "Son yedeklemeden bu yana 30 dakika gecti. Veri kaybini onlemek icin lutfen yedek aliniz.",
-          });
-        } catch (err) {
-          console.error("Notification trigger bypass:", err);
-        }
-      }
-      setIsBackupReminderOpen(true);
-    }, 30 * 60 * 1000);
-    return () => clearInterval(backupInterval);
-  }, []);
+  // Devir reminders setup
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -2477,38 +2453,6 @@ export default function App() {
         devirGroupData={devirGroupData}
         onSendMail={sendDevirMail}
       />
-
-      {/* BACKUP REMINDER DIALOG */}
-      {isBackupReminderOpen && (
-        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center border border-gray-100">
-            <div className="bg-amber-50 text-amber-600 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <TableIcon size={32} />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Veri Yedekleme Hatirlaticisi</h3>
-            <p className="text-xs text-gray-500 mb-6 leading-relaxed font-semibold">
-              Sisteme giris yaptiginizdan beri 30 dakika gecti. Olasi tarayici temizliklerinde veri kaybini onlemek icin guncel verilerinizi yedeklemenizi tavsiye ederiz.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setIsBackupReminderOpen(false)}
-                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-semibold transition-colors"
-              >
-                Daha Sonra
-              </button>
-              <button
-                onClick={() => {
-                  manualDownload();
-                  setIsBackupReminderOpen(false);
-                }}
-                className="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5"
-              >
-                <Download size={14} /> Simdi Yedekle
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* DÜZENLEME DIALOG */}
       <EditGroupModal

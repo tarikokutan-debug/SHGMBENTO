@@ -297,7 +297,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
               <div className="bg-zinc-50 border-2 border-zinc-900 p-4 rounded-2xl font-mono text-[11px] space-y-1.5 text-zinc-800">
                 <div><strong>Talep Türü:</strong> Yazılım Kurulumu & Ortak Klasör Yazma İzni</div>
                 <div><strong>Yazılım Adı:</strong> SHGM İzin Takip Masaüstü İstemcisi v5.6.2</div>
-                <div><strong>Veri Erişim Yolu:</strong> Avrasya Ağ Sürücüsü Ortak Klasörü (shgm_database.json)</div>
+                <div><strong>Veri Erişim Yolu:</strong> \\Avrasya\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\MD_KARGO_TARIFE\04_Slot\Slot_Otomasyonlari\SHGM_Takip\shgmdata.json</div>
                 <div><strong>Güvenlik Sınıfı:</strong> Kapalı Devre (0 KB Dış İnternet Egress / Localhost Only)</div>
               </div>
             </div>
@@ -566,7 +566,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                     type="text"
                     value={sharedFilePath}
                     onChange={(e) => setSharedFilePath(e.target.value)}
-                    placeholder="Örn: shared_data/shgm_database.json veya Z:\SHGM\shgm_database.json"
+                    placeholder="Örn: \\Avrasya\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\MD_KARGO_TARIFE\04_Slot\Slot_Otomasyonlari\SHGM_Takip\shgmdata.json"
                     className="flex-1 px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   />
                   {typeof window !== "undefined" && window.electronAPI?.isElectron && (
@@ -678,7 +678,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                     type="text"
                     value={sharedFilePath}
                     onChange={(e) => setSharedFilePath(e.target.value)}
-                    placeholder="Örn: shared_data/shgm_database.json veya Z:\SHGM\shgm_database.json"
+                    placeholder="Örn: \\Avrasya\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\MD_KARGO_TARIFE\04_Slot\Slot_Otomasyonlari\SHGM_Takip\shgmdata.json"
                     className="flex-1 px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   />
                   {typeof window !== "undefined" && window.electronAPI?.isElectron && (
