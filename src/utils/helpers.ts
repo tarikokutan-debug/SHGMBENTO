@@ -275,3 +275,67 @@ export const parseFlightRow = (line: string): any | null => {
     isDg: false,
   };
 };
+
+export const formatShortAviationDate = (dateStr: string): string => {
+  if (!dateStr) return "";
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+  const parseSingle = (s: string) => {
+    const trimmed = String(s || "").trim();
+    if (!trimmed) return "";
+    let m = trimmed.match(/^(\d{1,2})[\.\/-](\d{1,2})[\.\/-](\d{2,4})$/);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const monthIdx = parseInt(m[2], 10) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day < 10 ? "0" + day : day}${months[monthIdx]}`;
+      }
+    }
+    m = trimmed.match(/^(\d{4})[\.\/-](\d{1,2})[\.\/-](\d{1,2})$/);
+    if (m) {
+      const day = parseInt(m[3], 10);
+      const monthIdx = parseInt(m[2], 10) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day < 10 ? "0" + day : day}${months[monthIdx]}`;
+      }
+    }
+    return trimmed;
+  };
+
+  if (dateStr.includes(" - ")) {
+    const parts = dateStr.split(" - ");
+    const p1 = parseSingle(parts[0]);
+    const p2 = parseSingle(parts[1]);
+    if (p1 && p2 && p1 !== p2) return `${p1}-${p2}`;
+    return p1 || dateStr;
+  }
+
+  return parseSingle(dateStr);
+};
+
+export const formatGroupRoute = (flights: any[]): string => {
+  if (!flights || flights.length === 0) return "";
+  const stops: string[] = [];
+  flights.forEach((f) => {
+    const orig = String(f?.orig || "").trim().toUpperCase();
+    const dest = String(f?.dest || "").trim().toUpperCase();
+    if (orig && (stops.length === 0 || stops[stops.length - 1] !== orig)) {
+      stops.push(orig);
+    }
+    if (dest && (stops.length === 0 || stops[stops.length - 1] !== dest)) {
+      stops.push(dest);
+    }
+  });
+  return stops.join("-");
+};
+
+export const getSpecialStationCode = (flights: any[]): string | null => {
+  if (!flights || flights.length === 0) return null;
+  for (const f of flights) {
+    const dest = String(f?.dest || "").trim().toUpperCase();
+    if (SPECIAL_DESTINATIONS.includes(dest)) return dest;
+    const orig = String(f?.orig || "").trim().toUpperCase();
+    if (SPECIAL_DESTINATIONS.includes(orig)) return orig;
+  }
+  return null;
+};

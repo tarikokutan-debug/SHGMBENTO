@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   Loader,
   CreditCard,
+  Filter,
 } from "lucide-react";
 
 import { Flight, AppFees, StationEmails } from "./types";
@@ -59,6 +60,9 @@ import {
   parseFlightRow,
   parseDDMMYYYY,
   parseEndDateDDMMYYYY,
+  formatShortAviationDate,
+  formatGroupRoute,
+  getSpecialStationCode,
 } from "./utils/helpers";
 // Google Sheets features removed as requested by the airline team
 
@@ -1070,18 +1074,16 @@ export default function App() {
     const groups: Record<string, any> = {};
     const filteredFlights = flights.filter((f) => {
       if (!f) return false;
-      const isCompleted = f.status === "APPROVED" || f.status === "REJECTED" || f.cancelled;
-      if (operationsTab === "ACTIVE") {
-        if (isCompleted) return false;
-        if (statusFilter !== "ALL" && f.status !== statusFilter) return false;
-        return true;
-      } else {
-        if (!isCompleted) return false;
-        if (statusFilter === "CANCELLED" && !f.cancelled) return false;
-        if (statusFilter === "REJECTED" && (f.status !== "REJECTED" || f.cancelled)) return false;
-        if (statusFilter === "APPROVED" && (f.status !== "APPROVED" || f.cancelled)) return false;
-        return true;
+      if (statusFilter === "PENDING") {
+        if (f.status === "APPROVED" || f.status === "REJECTED" || f.cancelled) return false;
+      } else if (statusFilter === "APPROVED") {
+        if (f.status !== "APPROVED" || f.cancelled) return false;
+      } else if (statusFilter === "REJECTED") {
+        if (f.status !== "REJECTED" || f.cancelled) return false;
+      } else if (statusFilter === "CANCELLED") {
+        if (!f.cancelled) return false;
       }
+      return true;
     });
 
     const s = String(searchTerm || "").toLowerCase();
@@ -1129,13 +1131,20 @@ export default function App() {
     });
 
     return Object.values(groups).sort((a: any, b: any) => {
-      if (operationsTab === "ACTIVE") {
+      const isPendingA = a.status !== "APPROVED" && a.status !== "REJECTED" && !(a.flights && a.flights[0] && a.flights[0].cancelled);
+      const isPendingB = b.status !== "APPROVED" && b.status !== "REJECTED" && !(b.flights && b.flights[0] && b.flights[0].cancelled);
+
+      if (isPendingA && !isPendingB) return -1;
+      if (!isPendingA && isPendingB) return 1;
+
+      if (isPendingA && isPendingB) {
         const daysArrA = a.flights.map((f: any) => calculateDaysLeft(String(f.date || ""), currentDate));
         const minDaysA = daysArrA.length > 0 ? Math.min(...daysArrA) : 999;
         const daysArrB = b.flights.map((f: any) => calculateDaysLeft(String(f.date || ""), currentDate));
         const minDaysB = daysArrB.length > 0 ? Math.min(...daysArrB) : 999;
-        return minDaysA - minDaysB;
+        if (minDaysA !== minDaysB) return minDaysA - minDaysB;
       }
+
       const seqA = archivedSeqNumbers[a.groupId] || 0;
       const seqB = archivedSeqNumbers[b.groupId] || 0;
       if (seqA !== 0 || seqB !== 0) {
@@ -1143,7 +1152,7 @@ export default function App() {
       }
       return (b.timestamp || 0) - (a.timestamp || 0);
     });
-  }, [flights, operationsTab, statusFilter, destFilter, searchTerm, dateFilter, currentDate, archivedSeqNumbers]);
+  }, [flights, statusFilter, destFilter, searchTerm, dateFilter, currentDate, archivedSeqNumbers]);
 
   const homePendingGroups = useMemo(() => {
     const groups: Record<string, any> = {};
@@ -1571,70 +1580,52 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 md:px-6 mt-8">
         {currentView === "OPERATIONS" && (
           <div className="animate-fade-in space-y-6">
-            {/* Üst Başlık ve Hızlı Eylemler */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 border-2 border-zinc-900 rounded-2xl shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
-              <div>
-                <h2 className="text-2xl font-black tracking-tight uppercase text-zinc-950 flex items-center gap-2">
-                  <Plane className="transform -rotate-45 text-[#C8102E] h-6 w-6 shrink-0" strokeWidth={3} />
-                  Operasyon & Takip Masası
-                </h2>
-                <p className="text-xs text-zinc-500 font-mono uppercase tracking-wide mt-1">
-                  Onay süreçlerinin canlı takibi, kurumsal özetler ve e-tablo yönetimi tek ekranda.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+            {/* GRID CONTAINER: 1/4 Sol Panel (Girdi & Filtreler), 3/4 Sağ Panel (Başvuru Kartları) */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+              {/* SOL KOLON - 1/4 GENİŞLİK (lg:col-span-1) */}
+              <div className="lg:col-span-1 space-y-4">
+                {/* 1. DEVİR MAİLİ HAZIRLA BUTONU */}
                 <button
                   onClick={() => setIsDevirModalOpen(true)}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all cursor-pointer whitespace-nowrap font-bold"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 rounded-2xl text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer font-bold"
                 >
-                  <BellRing size={16} /> DEVİR MAİLİ HAZIRLA
+                  <BellRing size={18} /> DEVİR MAİLİ HAZIRLA
                 </button>
-                <button
-                  onClick={() => setShowAddPanel(!showAddPanel)}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-[#C8102E] hover:bg-red-700 text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all cursor-pointer whitespace-nowrap font-bold"
-                >
-                  <Plus size={16} /> {showAddPanel ? "GİRİŞ PANELİNİ GİZLE" : "HIZLI BAŞVURU GİRİŞİ"}
-                </button>
-              </div>
-            </div>
 
-            {/* HIZLI BAŞVURU GİRİŞİ PANELİ (Anasayfa & Operasyon Birleşimi) */}
-            {showAddPanel && (
-              <div className="bg-white p-6 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] animate-fade-in">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-2 border-zinc-900 pb-3 mb-5">
-                  <div className="flex items-center gap-2">
-                    <PlusCircle className="text-[#C8102E]" size={18} />
-                    <h3 className="text-sm font-black uppercase tracking-wider text-zinc-950">Hızlı Başvuru Giriş Paneli</h3>
+                {/* 2. HIZLI BAŞVURU GİRİŞİ PANELİ */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
+                  <div className="flex items-center justify-between border-b-2 border-zinc-900 pb-2.5 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <PlusCircle className="text-[#C8102E]" size={16} />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-zinc-950">Hızlı Başvuru Girişi</h3>
+                    </div>
+                    <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-300">
+                      <button
+                        type="button"
+                        className={`px-2 py-1 text-[9px] font-black uppercase rounded transition-all ${
+                          addMode === "SINGLE" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
+                        }`}
+                        onClick={() => setAddMode("SINGLE")}
+                      >
+                        Tekil
+                      </button>
+                      <button
+                        type="button"
+                        className={`px-2 py-1 text-[9px] font-black uppercase rounded transition-all ${
+                          addMode === "BULK" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
+                        }`}
+                        onClick={() => setAddMode("BULK")}
+                      >
+                        Toplu
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-300">
-                    <button
-                      type="button"
-                      className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
-                        addMode === "SINGLE" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
-                      }`}
-                      onClick={() => setAddMode("SINGLE")}
-                    >
-                      Tekil Sefer
-                    </button>
-                    <button
-                      type="button"
-                      className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
-                        addMode === "BULK" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-900"
-                      }`}
-                      onClick={() => setAddMode("BULK")}
-                    >
-                      Toplu Yapıştır (Excel/AFTN)
-                    </button>
-                  </div>
-                </div>
 
-                <form onSubmit={handleDashboardSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                  {/* Sol Kolon - Veri Girişi */}
-                  <div className="md:col-span-7 space-y-4">
+                  <form onSubmit={handleDashboardSubmit} className="space-y-3">
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Başvuru Türü / Kapsamı</label>
+                      <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Başvuru Türü</label>
                       <select
-                        className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-black uppercase focus:outline-none focus:bg-white cursor-pointer"
+                        className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-black uppercase focus:outline-none focus:bg-white cursor-pointer"
                         value={dashboardAppType}
                         onChange={(e) => setDashboardAppType(e.target.value)}
                       >
@@ -1645,83 +1636,83 @@ export default function App() {
                     </div>
 
                     {addMode === "SINGLE" ? (
-                      <div className="space-y-4 animate-fade-in">
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2.5">
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5 font-mono">Havayolu (TK)</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1 font-mono">Havayolu</label>
                             <input
                               type="text"
                               required
                               placeholder="TK"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white font-mono"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white font-mono"
                               value={newFlight.al}
                               onChange={(e) => setNewFlight({ ...newFlight, al: e.target.value })}
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5 font-mono">Sefer No</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1 font-mono">Sefer No</label>
                             <input
                               type="text"
                               required
                               placeholder="6302"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none focus:bg-white"
                               value={newFlight.flNo}
                               onChange={(e) => setNewFlight({ ...newFlight, flNo: e.target.value })}
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Kalkış</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Kalkış</label>
                             <input
                               type="text"
                               required
                               placeholder="IST"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white"
                               value={newFlight.orig}
                               onChange={(e) => setNewFlight({ ...newFlight, orig: e.target.value })}
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Varış</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Varış</label>
                             <input
                               type="text"
                               required
                               placeholder="EBL"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase focus:outline-none focus:bg-white"
                               value={newFlight.dest}
                               onChange={(e) => setNewFlight({ ...newFlight, dest: e.target.value })}
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5 font-mono">Tarih</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1 font-mono">Tarih</label>
                             <input
                               type="text"
                               required
                               placeholder="04.05.2026"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono font-bold focus:outline-none focus:bg-white"
                               value={newFlight.date}
                               onChange={(e) => setNewFlight({ ...newFlight, date: e.target.value })}
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">STD (Kalkış UTC)</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">STD (UTC)</label>
                             <input
                               type="time"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
                               value={newFlight.std}
                               onChange={(e) => setNewFlight({ ...newFlight, std: e.target.value })}
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">STA (Varış UTC)</label>
+                            <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">STA (UTC)</label>
                             <input
                               type="time"
-                              className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
+                              className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white"
                               value={newFlight.sta}
                               onChange={(e) => setNewFlight({ ...newFlight, sta: e.target.value })}
                             />
@@ -1729,91 +1720,59 @@ export default function App() {
                         </div>
 
                         {SPECIAL_DESTINATIONS.includes(String(newFlight.dest).toUpperCase()) && (
-                          <div className="p-4 bg-amber-50 border-2 border-zinc-900 rounded-2xl animate-fade-in shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                            <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block mb-2">Özel İstasyon Şartları (AWB / DG)</span>
-                            <div className="grid grid-cols-2 gap-3">
+                          <div className="p-2.5 bg-amber-50 border-2 border-zinc-900 rounded-xl">
+                            <span className="text-[9px] font-black text-amber-800 uppercase tracking-wider block mb-1">Özel İstasyon (AWB / DG)</span>
+                            <div className="space-y-1.5">
                               <input
                                 type="text"
                                 placeholder="AWB No (235-...)"
-                                className="px-3 py-1.5 bg-white border-2 border-zinc-900 rounded-lg text-xs font-bold"
+                                className="w-full px-2 py-1 bg-white border-2 border-zinc-900 rounded-lg text-xs font-bold"
                                 value={newFlight.awbNo || ""}
                                 onChange={(e) => setNewFlight({ ...newFlight, awbNo: e.target.value })}
                               />
                               <label className="flex items-center gap-1.5 cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  className="w-4 h-4 text-zinc-900 focus:ring-zinc-900 border-zinc-900 rounded"
+                                  className="w-3.5 h-3.5 text-zinc-900 focus:ring-zinc-900 border-zinc-900 rounded"
                                   checked={newFlight.isDg || false}
                                   onChange={(e) => setNewFlight({ ...newFlight, isDg: e.target.checked })}
                                 />
-                                <span className="text-[10px] font-black text-amber-800">DG GÖNDERİ</span>
+                                <span className="text-[9px] font-black text-amber-800">DG GÖNDERİ</span>
                               </label>
                             </div>
                           </div>
                         )}
 
                         <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Özel Takip Notları / Açıklama</label>
+                          <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Takip Notu</label>
                           <input
                             type="text"
-                            placeholder="Uçuşa ait takip notu veya özel açıklama girin..."
-                            className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white placeholder-zinc-400"
+                            placeholder="Açıklama girin..."
+                            className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-medium focus:outline-none focus:bg-white placeholder-zinc-400"
                             value={newFlight.notes}
                             onChange={(e) => setNewFlight({ ...newFlight, notes: e.target.value })}
                           />
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-4 animate-fade-in">
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-wider mb-1.5">Uçuş Bilgilerini Buraya Yapıştırın</label>
-                          <textarea
-                            placeholder="Örn: TK6302 04.05.2026 IST EBL 10:15 13:45&#10;Ya da AFTN/SITA formatındaki uçuş mesajını doğrudan buraya yapıştırabilirsiniz..."
-                            rows={7}
-                            className="w-full px-3 py-2 bg-zinc-50 border-2 border-zinc-900 rounded-2xl text-xs font-mono focus:outline-none focus:bg-white"
-                            value={dashboardPasteContent}
-                            onChange={handleDashboardPaste}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sağ Kolon - Önizleme ve Eylemler */}
-                  <div className="md:col-span-5 flex flex-col justify-between bg-zinc-50 border-2 border-dashed border-zinc-300 rounded-2xl p-5 min-h-[220px]">
-                    {addMode === "SINGLE" ? (
-                      <div className="space-y-4">
-                        <div className="text-center py-6">
-                          <Plane className="h-10 w-10 text-zinc-350 mx-auto transform -rotate-45 mb-2" />
-                          <h4 className="text-xs font-black uppercase text-zinc-850">Tekil Başvuru Girişi</h4>
-                          <p className="text-[10px] text-zinc-400 font-mono mt-1.5 leading-relaxed">Alanları doldurduktan sonra aşağıdaki 'Başvuruyu Takibe Al' butonuna tıklayarak seferi canlı sisteme ekleyebilirsiniz.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-center mb-2 border-b border-zinc-200 pb-1">
-                            <span className="text-[10px] font-black text-zinc-650 uppercase tracking-wider">Ayrıştırılan Uçuşlar</span>
-                            <span className="text-xs font-black font-mono text-zinc-900 bg-zinc-200 px-2 py-0.5 rounded-lg">{dashboardParsedData.length}</span>
+                      <div className="space-y-2">
+                        <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Uçuş Metnini Yapıştırın</label>
+                        <textarea
+                          placeholder="Örn: 1 TK6116 IST-MJI 11:10 23.07.2026..."
+                          rows={6}
+                          className="w-full px-2.5 py-1.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono focus:outline-none focus:bg-white"
+                          value={dashboardPasteContent}
+                          onChange={handleDashboardPaste}
+                        />
+                        {dashboardParsedData.length > 0 && (
+                          <div className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 p-2 rounded-lg font-mono">
+                            ✓ {dashboardParsedData.length} uçuş ayrıştırıldı
                           </div>
-                          {dashboardParsedData.length > 0 ? (
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                              {dashboardParsedData.map((f, i) => (
-                                <div key={i} className="flex justify-between items-center text-[10px] font-bold bg-white border border-zinc-200 p-2 rounded-lg font-mono">
-                                  <span className="text-zinc-900">{f.al}{f.flNo}</span>
-                                  <span className="text-zinc-500">{f.orig}-{f.dest}</span>
-                                  <span className="text-zinc-600">{f.date}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-[11px] text-zinc-400">Sol tarafa metin yapıştırdığınızda otomatik olarak burada listelenecektir.</div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     )}
 
-                    <div className="flex gap-2 border-t border-zinc-200 pt-4 mt-4 shrink-0">
+                    <div className="flex gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -1821,282 +1780,136 @@ export default function App() {
                           setDashboardParsedData([]);
                           setNewFlight({ al: "TK", flNo: "", date: "", orig: "IST", dest: "", std: "", sta: "", awbNo: "", isDg: false, notes: "" });
                         }}
-                        className="px-4 py-2 bg-white hover:bg-zinc-100 text-zinc-800 border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:shadow-none cursor-pointer"
+                        className="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-800 border-2 border-zinc-900 rounded-xl text-xs font-black uppercase shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:shadow-none cursor-pointer"
                       >
                         Temizle
                       </button>
                       <button
                         type="submit"
                         disabled={addMode === "BULK" && dashboardParsedData.length === 0}
-                        className={`flex-1 px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer ${
+                        className={`flex-1 px-3 py-1.5 bg-[#C8102E] hover:bg-red-700 text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer ${
                           addMode === "BULK" && dashboardParsedData.length === 0 ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                       >
-                        Başvuruyu Takibe Al
+                        Takibe Al
                       </button>
                     </div>
+                  </form>
+                </div>
+
+                {/* 3. FİLTRELEME SEÇENEKLERİ */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] space-y-3">
+                  <div className="flex items-center gap-1.5 border-b-2 border-zinc-900 pb-2">
+                    <Filter className="text-zinc-900" size={16} />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-zinc-950">Filtreleme Seçenekleri</h3>
                   </div>
-                </form>
-              </div>
-            )}
 
-            {/* Canlı Özet ve Bento Bölümü */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b-2 border-zinc-900 pb-2">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-950 flex items-center gap-2">
-                  <LayoutDashboard size={14} /> CANLI ÖZET & HIZLI FİLTRELEME
-                </h3>
-                <button
-                  onClick={() => setShowSummaryPanel(!showSummaryPanel)}
-                  className="text-[10px] font-black uppercase tracking-wider bg-white border-2 border-zinc-900 px-3 py-1.5 rounded-xl hover:bg-zinc-100 transition-all shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none cursor-pointer"
-                >
-                  {showSummaryPanel ? "ÖZETİ GİZLE" : "ÖZETİ GÖSTER"}
-                </button>
-              </div>
-
-              {showSummaryPanel && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-                  {/* Sol Taraf: 4 Kompakt KPI Kartı */}
-                  <div className="lg:col-span-1 grid grid-cols-2 gap-3">
-                    {/* Onay Bekleyen */}
-                    <div 
-                      onClick={() => {
-                        if (statusFilter === "PENDING" && operationsTab === "ACTIVE") {
-                          setStatusFilter("ALL");
-                        } else {
-                          setStatusFilter("PENDING");
-                          setOperationsTab("ACTIVE");
-                        }
-                      }}
-                      className={`p-3.5 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-24 cursor-pointer transition-all hover:translate-y-[-1px] ${
-                        statusFilter === "PENDING" && operationsTab === "ACTIVE"
-                          ? "bg-orange-100 ring-2 ring-orange-500" 
-                          : "bg-white hover:bg-zinc-50"
-                      }`}
-                      title="Onay Bekleyenler (Aktif)"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-zinc-500 text-[9px] font-black uppercase tracking-wider font-mono">BEKLEYEN (AFTN)</span>
-                        <Clock className="text-orange-500" size={14} />
-                      </div>
-                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.pendingApprovals}</div>
-                    </div>
-
-                    {/* Reddedilen */}
-                    <div 
-                      onClick={() => {
-                        if (statusFilter === "REJECTED" && operationsTab === "COMPLETED") {
-                          setStatusFilter("ALL");
-                        } else {
-                          setStatusFilter("REJECTED");
-                          setOperationsTab("COMPLETED");
-                        }
-                      }}
-                      className={`p-3.5 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-24 cursor-pointer transition-all hover:translate-y-[-1px] ${
-                        statusFilter === "REJECTED" && operationsTab === "COMPLETED"
-                          ? "bg-red-100 ring-2 ring-red-500" 
-                          : "bg-rose-50/50 hover:bg-rose-50"
-                      }`}
-                      title="Reddedilenler (Arşiv)"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">REDDEDİLEN</span>
-                        <Ban className="text-red-500" size={14} />
-                      </div>
-                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.rejectedCount}</div>
-                    </div>
-
-                    {/* İptal Edilen */}
-                    <div 
-                      onClick={() => {
-                        if (statusFilter === "CANCELLED" && operationsTab === "COMPLETED") {
-                          setStatusFilter("ALL");
-                        } else {
-                          setStatusFilter("CANCELLED");
-                          setOperationsTab("COMPLETED");
-                        }
-                      }}
-                      className={`p-3.5 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-24 cursor-pointer transition-all hover:translate-y-[-1px] ${
-                        statusFilter === "CANCELLED" && operationsTab === "COMPLETED"
-                          ? "bg-amber-100 ring-2 ring-amber-500" 
-                          : "bg-amber-50/50 hover:bg-amber-50"
-                      }`}
-                      title="İptal Edilenler (Arşiv)"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">İPTAL EDİLEN</span>
-                        <XCircle className="text-amber-600" size={14} />
-                      </div>
-                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.cancelledCount}</div>
-                    </div>
-
-                    {/* Onaylanan */}
-                    <div 
-                      onClick={() => {
-                        if (statusFilter === "APPROVED" && operationsTab === "COMPLETED") {
-                          setStatusFilter("ALL");
-                        } else {
-                          setStatusFilter("APPROVED");
-                          setOperationsTab("COMPLETED");
-                        }
-                      }}
-                      className={`p-3.5 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between h-24 cursor-pointer transition-all hover:translate-y-[-1px] ${
-                        statusFilter === "APPROVED" && operationsTab === "COMPLETED"
-                          ? "bg-emerald-100 ring-2 ring-emerald-500" 
-                          : "bg-emerald-50/50 hover:bg-emerald-50"
-                      }`}
-                      title="Onaylananlar (Arşiv)"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="text-zinc-550 text-[9px] font-black uppercase tracking-wider font-mono">ONAYLANAN</span>
-                        <CheckCircle className="text-emerald-500" size={14} />
-                      </div>
-                      <div className="text-2xl font-black text-zinc-900 font-mono leading-none">{reportMetrics.totalApproved}</div>
+                  {/* Arama Alanı */}
+                  <div>
+                    <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Arama</label>
+                    <div className="relative border-2 border-zinc-900 rounded-xl px-2.5 py-1.5 bg-white">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="AFTN, AWB veya Sefer..."
+                        className="w-full pl-6 text-xs focus:outline-none placeholder-zinc-400 text-zinc-800 font-bold uppercase"
+                      />
                     </div>
                   </div>
 
-                  {/* Sağ Taraf: Aktif Bekleyen Süreçler Hızlı Kartları (Yatay Kaydırılabilir) */}
-                  <div className="lg:col-span-2 bg-white p-4 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] flex flex-col justify-between min-h-[200px]">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">Aktif Bekleyen Süreçler ({homePendingGroups.length})</span>
-                      <span className="text-[9px] text-zinc-500 font-mono uppercase">Tabloyu filtrelemek için tıklayın</span>
+                  {/* Durum Filtresi */}
+                  <div>
+                    <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Durum Filtresi</label>
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { id: "ALL", label: "Tümü" },
+                        { id: "PENDING", label: "Bekleyen" },
+                        { id: "APPROVED", label: "Onaylanan" },
+                        { id: "REJECTED", label: "Reddedilen" },
+                        { id: "CANCELLED", label: "İptal" },
+                      ].map((st) => (
+                        <button
+                          key={st.id}
+                          onClick={() => setStatusFilter(st.id)}
+                          className={`px-2 py-1 text-[10px] font-black uppercase rounded-lg border-2 border-zinc-900 transition-all cursor-pointer ${
+                            statusFilter === st.id
+                              ? "bg-zinc-900 text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                              : "bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                          }`}
+                        >
+                          {st.label}
+                        </button>
+                      ))}
                     </div>
+                  </div>
 
-                    {homePendingGroups.length > 0 ? (
-                      <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-900 scrollbar-track-zinc-100 max-h-[140px]">
-                        {homePendingGroups.map((app) => {
-                          const isSelected = searchTerm === app.aftnNo || (app.aftnNo === "AFTN BEKLIYOR" && searchTerm === app.uniqueFlNos[0]);
-                          return (
-                            <div
-                              key={app.groupId}
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSearchTerm("");
-                                } else {
-                                  navigateToOperations(app.aftnNo !== "AFTN BEKLIYOR" ? app.aftnNo : app.uniqueFlNos[0]);
-                                }
-                              }}
-                              className={`flex-shrink-0 w-52 p-3.5 rounded-xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] cursor-pointer hover:translate-y-[-2px] transition-all relative overflow-hidden flex flex-col justify-between ${
-                                isSelected ? "bg-indigo-50 ring-2 ring-indigo-500" : "bg-white"
-                              }`}
-                            >
-                              <div
-                                className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                                  app.minDays <= 3 ? "bg-red-500" : app.minDays <= 7 ? "bg-amber-400" : "bg-indigo-500"
-                                }`}
-                              />
-                              <div className="flex justify-between items-start gap-1">
-                                <span className="font-mono font-bold text-zinc-900 text-xs truncate max-w-[110px]" title={app.aftnNo}>
-                                  {app.aftnNo}
-                                </span>
-                                <span
-                                  className={`shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                    app.minDays <= 3
-                                      ? "bg-red-100 text-red-950"
-                                      : app.minDays <= 7
-                                      ? "bg-amber-100 text-amber-950"
-                                      : "bg-indigo-100 text-indigo-950"
-                                  }`}
-                                >
-                                  {app.minDays < 0 ? "GEÇTİ" : `${app.minDays} GÜN`}
-                                </span>
-                              </div>
+                  {/* İstasyon Filtresi */}
+                  <div>
+                    <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">İstasyon / Parkur</label>
+                    <select
+                      value={destFilter}
+                      onChange={(e) => setDestFilter(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700 cursor-pointer"
+                    >
+                      <option value="ALL">Tüm İstasyonlar</option>
+                      {destinations.map((d) => (
+                        <option key={d} value={d}>
+                          {String(d)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                              <div className="my-2 space-y-0.5">
-                                <div className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider font-mono">Seferler:</div>
-                                <div className="text-[11px] font-bold text-zinc-800 truncate">
-                                  {app.uniqueFlNos.slice(0, 3).join(", ")}
-                                  {app.uniqueFlNos.length > 3 ? "..." : ""}
-                                </div>
-                              </div>
+                  {/* Tarih Filtresi */}
+                  <div>
+                    <label className="block text-[9px] font-black text-zinc-500 uppercase tracking-wider mb-1">Tarih</label>
+                    <input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700"
+                    />
+                  </div>
 
-                              <div className="pt-1.5 border-t border-zinc-200 flex justify-between items-center text-[9px] text-zinc-500 font-mono font-bold">
-                                <span>{app.flights.length} Uçuş</span>
-                                {isSelected && <span className="text-indigo-600 font-black">FİLTRELİ</span>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center border-2 border-zinc-200 border-dashed rounded-xl p-4 bg-zinc-50">
-                        <CheckCircle size={24} className="text-emerald-400 mb-1" />
-                        <p className="text-zinc-650 font-bold uppercase tracking-wider text-[10px]">Aktif bekleyen süreç bulunmuyor.</p>
-                      </div>
-                    )}
+                  {(searchTerm || statusFilter !== "ALL" || destFilter !== "ALL" || dateFilter) && (
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setStatusFilter("ALL");
+                        setDestFilter("ALL");
+                        setDateFilter("");
+                      }}
+                      className="w-full py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-2 border-zinc-900 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Filtreleri Temizle
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SAĞ KOLON - 3/4 GENİŞLİK (lg:col-span-3) - BAŞVURU KARTLARI */}
+              <div className="lg:col-span-3 space-y-4">
+                {/* Kart Bölümü Üst Başlığı */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-white p-4 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
+                  <div className="flex items-center gap-2">
+                    <Plane className="transform -rotate-45 text-[#C8102E]" size={20} strokeWidth={2.5} />
+                    <h2 className="text-sm font-black uppercase tracking-wider text-zinc-950">
+                      BAŞVURU KARTLARI ({unifiedGroups.length})
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs font-mono font-bold text-zinc-500">
+                    <span className="bg-zinc-100 border border-zinc-300 px-2.5 py-1 rounded-lg text-[10px] text-zinc-700 font-black">
+                      Sıralama: Başvuru Sırasına Göre
+                    </span>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* Arama, Sekme Seçiciler ve Filtreler */}
-            <div className="flex flex-col lg:flex-row gap-4 bg-white p-4 border-2 border-zinc-900 rounded-2xl shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] items-center">
-              <div className="flex bg-zinc-150 p-1 rounded-xl border-2 border-zinc-900 w-full lg:w-auto shrink-0 font-bold">
-                <button
-                  onClick={() => setOperationsTab("ACTIVE")}
-                  className={`flex-1 lg:px-6 py-2 rounded-lg text-xs font-bold uppercase transition-all whitespace-nowrap ${
-                    operationsTab === "ACTIVE" ? "bg-zinc-900 text-white" : "text-zinc-650 hover:bg-zinc-200/55"
-                  }`}
-                >
-                  Devam Edenler
-                </button>
-                <button
-                  onClick={() => {
-                    setOperationsTab("COMPLETED");
-                    setStatusFilter("ALL");
-                  }}
-                  className={`flex-1 lg:px-6 py-2 rounded-lg text-xs font-bold uppercase transition-all whitespace-nowrap ${
-                    operationsTab === "COMPLETED" ? "bg-zinc-900 text-white" : "text-zinc-650 hover:bg-zinc-200/55"
-                  }`}
-                >
-                  Arsiv
-                </button>
-              </div>
-              <div className="hidden lg:block w-[2px] h-8 bg-zinc-900" />
-              <div className="flex-1 flex gap-3 w-full flex-wrap">
-                <div className="relative flex-1 min-w-[150px] border-2 border-zinc-900 rounded-xl px-3 py-1.5 bg-white">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="AFTN, AWB veya Sefer..."
-                    className="w-full pl-7 pr-1 text-xs focus:outline-none placeholder-zinc-400 text-zinc-800 font-bold uppercase"
-                  />
-                </div>
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="px-3 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700"
-                />
-                <select
-                  value={destFilter}
-                  onChange={(e) => setDestFilter(e.target.value)}
-                  className="px-3 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700 appearance-none pr-8 cursor-pointer"
-                >
-                  <option value="ALL">Tum Istasyonlar</option>
-                  {destinations.map((d) => (
-                    <option key={d} value={d}>
-                      {String(d)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="hidden lg:block w-[2px] h-8 bg-zinc-900" />
-              <button
-                onClick={() => {
-                  setShowAddPanel(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="w-full lg:w-auto px-5 py-2.5 bg-[#C8102E] text-white border-2 border-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] hover:bg-red-700 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Plus size={16} /> YENI BASVURU
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 w-full">
-              {unifiedGroups.length > 0 ? (
-                unifiedGroups.map((group: any) => {
+                {/* BAŞVURU KARTLARI GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+                  {unifiedGroups.length > 0 ? (
+                    unifiedGroups.map((group: any) => {
                   const isBulkGroup = group.isBulk || (group.flights && group.flights.length > 1);
                   const isCancelled = group.flights && group.flights[0] && group.flights[0].cancelled;
                   const isRejected = group.status === "REJECTED";
@@ -2150,13 +1963,20 @@ export default function App() {
                       </span>
                     );
 
+                  const specialStation = getSpecialStationCode(group.flights);
                   let title = "";
-                  if (isSpecial && group.flights && group.flights[0]) {
-                    title = String(group.flights[0].dest || "").toUpperCase() + " BASVURUSU";
+                  if (specialStation) {
+                    title = `${specialStation} BAŞVURUSU`;
+                  } else if (isSpecial && group.flights && group.flights[0]) {
+                    title = String(group.flights[0].dest || "").toUpperCase() + " BAŞVURUSU";
                   } else if (group.flights && group.flights[0]) {
                     const dateRawStr = String(group.flights[0].date || "");
-                    title = dateRawStr.includes("-") || dateRawStr.includes(" ") ? "DONEMSEL DEGISIKLIK" : "MUNFERIT DEGISIKLIK";
+                    title = dateRawStr.includes("-") || dateRawStr.includes(" ") ? "DÖNEMSEL DEĞİŞİKLİK" : "MÜNFERİT DEĞİŞİKLİK";
                   }
+
+                  const shortAviationDate = formatShortAviationDate(group.flights && group.flights[0]?.date || "");
+                  const groupRoute = formatGroupRoute(group.flights || []);
+                  const isDgApp = group.flights && group.flights.some((f: any) => f.isDg);
 
                   return (
                     <div
@@ -2180,20 +2000,35 @@ export default function App() {
                       </div>
                       {/* BODY */}
                       <div className="p-4 flex-1 flex flex-col relative bg-white">
-                        {isSpecial && group.flights[0]?.awbNo && (
-                          <div className="mb-3">
-                            <span className="inline-flex items-center gap-1.5 bg-amber-200 text-zinc-900 px-2.5 py-1 rounded-lg text-[10px] font-black border-2 border-zinc-900 font-mono shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                              <Radiation size={12} /> DG / AWB: {group.flights[0].awbNo}
+                        <div className="flex justify-between items-center mb-2 gap-2">
+                          <div className="font-extrabold text-zinc-900 text-sm tracking-tight uppercase truncate">{title}</div>
+                          {isDgApp && (
+                            <span className="shrink-0 inline-flex items-center gap-1 bg-[#C8102E] text-white px-2 py-0.5 rounded-md text-[9px] font-black border border-zinc-900 font-mono shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] uppercase">
+                              <Radiation size={11} /> DG BAŞVURU
+                            </span>
+                          )}
+                        </div>
+
+                        {/* SEFER BİLGİ SATIRI: TARİH + ROTA (Örn: 13AUG IST-BGW-IST) */}
+                        {group.flights && group.flights.length > 0 && (
+                          <div className="text-xs font-black font-mono text-zinc-900 bg-zinc-100 border-2 border-zinc-900 px-3 py-1.5 rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between mb-2.5">
+                            <span className="text-[#C8102E] font-black tracking-wider">{shortAviationDate}</span>
+                            <span className="tracking-wider font-extrabold">{groupRoute}</span>
+                          </div>
+                        )}
+
+                        {group.flights && group.flights[0]?.awbNo && (
+                          <div className="mb-2">
+                            <span className="inline-flex items-center gap-1 bg-amber-200 text-zinc-900 px-2.5 py-0.5 rounded-lg text-[10px] font-black border border-zinc-900 font-mono">
+                              AWB: {group.flights[0].awbNo}
                             </span>
                           </div>
                         )}
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="font-extrabold text-zinc-900 text-sm tracking-tight uppercase">{title}</div>
-                        </div>
+
                         <div className="mb-auto">
                           {isBulkGroup ? (
-                            <div className="text-xs text-zinc-650 leading-relaxed mt-2 font-medium">
-                              <span className="font-bold text-zinc-800 block mb-1 uppercase text-[10px] tracking-wider">{group.flights?.length || 0} Ucus Iceriyor:</span>
+                            <div className="text-xs text-zinc-650 leading-relaxed font-medium">
+                              <span className="font-bold text-zinc-800 block mb-1 uppercase text-[10px] tracking-wider">{group.flights?.length || 0} Uçuş İçeriyor:</span>
                               {group.flights.slice(0, 4).map((f: any) => `${String(f.al || "TK")}${f.flNo}`).join(", ")}
                               {group.flights.length > 4 ? (
                                 <span className="text-zinc-400"> ve {group.flights.length - 4} daha...</span>
@@ -2202,26 +2037,12 @@ export default function App() {
                               )}
                             </div>
                           ) : (
-                            <>
-                              <div className="flex justify-between items-center relative py-2 mb-1">
-                                <div className="text-2xl font-black text-zinc-900 bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.orig || "")}</div>
-                                <div className="flex-1 flex items-center px-4">
-                                  <div className="w-full h-[2px] border-b-2 border-dashed border-zinc-900 relative">
-                                    <Plane
-                                      className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 text-zinc-900 bg-white border-2 border-zinc-900 p-0.5 rounded-md"
-                                      size={22}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="text-2xl font-black text-zinc-900 bg-zinc-100 border-2 border-zinc-900 px-2.5 py-0.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">{String(group.flights[0]?.dest || "")}</div>
-                              </div>
-                              <div className="flex justify-between items-center text-xs font-bold text-zinc-500 mt-1">
-                                <span>{String(group.flights[0]?.date || "")}</span>
-                                <span className="bg-zinc-100 border border-zinc-300 px-1 py-0.5 rounded">
-                                  {String(group.flights[0]?.std || "")} - {String(group.flights[0]?.sta || "")}
-                                </span>
-                              </div>
-                            </>
+                            <div className="flex justify-between items-center text-xs font-bold text-zinc-500 mt-1">
+                              <span>Saat (UTC):</span>
+                              <span className="bg-zinc-100 border border-zinc-300 px-1.5 py-0.5 rounded font-mono">
+                                {String(group.flights[0]?.std || "")} - {String(group.flights[0]?.sta || "")}
+                              </span>
+                            </div>
                           )}
                         </div>
                         
@@ -2305,12 +2126,14 @@ export default function App() {
               ) : (
                 <div className="col-span-full py-24 bg-white rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
                   <LayoutDashboard size={48} className="mb-4 text-gray-300" />
-                  <p className="text-sm font-medium">Bu kriterlerde bir operasyon kaydi bulunamadi.</p>
+                  <p className="text-sm font-medium">Bu kriterlerde bir operasyon kaydı bulunamadı.</p>
                 </div>
               )}
             </div>
           </div>
-        )}
+        </div>
+      </div>
+    )}
 
         {/* --- RAPORLAMA --- */}
         {currentView === "REPORTING" && (
