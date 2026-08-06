@@ -1050,25 +1050,66 @@ export default function App() {
     setStatusFilter("ALL");
   };
 
-  const archivedSeqNumbers = useMemo(() => {
-    const completedFlights = flights.filter((f) => f && (f.status === "APPROVED" || f.status === "REJECTED" || f.cancelled));
-    const groups: Record<string, any> = {};
-    completedFlights.forEach((f) => {
+  const applicationSeqNumbers = useMemo(() => {
+    const groups: Record<string, { key: string; appTimestamp: number; dateTs: number }> = {};
+    flights.forEach((f) => {
+      if (!f) return;
       const key = f.aftnNo ? String(f.aftnNo) : f.bulkId ? `BULK_${f.bulkId}` : `SINGLE_${f.id}`;
+
+      let appTs = f.timestamps?.APP_MADE || f.timestamps?.MAIL_SENT || f.timestamps?.PENDING || f.createdAt;
+      if (!appTs && typeof f.id === "number" && f.id > 1000000000000) {
+        appTs = Math.floor(f.id);
+      }
+
+      let dTs = 0;
+      if (f.date) {
+        const parsed = parseDDMMYYYY(f.date);
+        if (parsed && !isNaN(parsed.getTime())) {
+          dTs = parsed.getTime();
+        }
+      }
+
       if (!groups[key]) {
         groups[key] = {
           key,
-          timestamp: f.timestamps?.APP_MADE || f.timestamps?.APPROVED || f.timestamps?.REJECTED || f.timestamps?.CANCELLED || f.id || 0,
+          appTimestamp: appTs || dTs || 0,
+          dateTs: dTs,
         };
+      } else {
+        if (appTs && appTs > 0) {
+          if (!groups[key].appTimestamp || appTs < groups[key].appTimestamp) {
+            groups[key].appTimestamp = appTs;
+          }
+        }
+        if (dTs && dTs > 0) {
+          if (!groups[key].dateTs || dTs < groups[key].dateTs) {
+            groups[key].dateTs = dTs;
+          }
+        }
       }
     });
-    const sortedGroups = Object.values(groups).sort((a, b) => a.timestamp - b.timestamp);
+
+    const sortedGroups = Object.values(groups).sort((a, b) => {
+      if (a.appTimestamp !== b.appTimestamp && a.appTimestamp > 0 && b.appTimestamp > 0) {
+        return a.appTimestamp - b.appTimestamp;
+      }
+      if (a.dateTs !== b.dateTs && a.dateTs > 0 && b.dateTs > 0) {
+        return a.dateTs - b.dateTs;
+      }
+      if (a.appTimestamp !== b.appTimestamp) {
+        return (a.appTimestamp || 0) - (b.appTimestamp || 0);
+      }
+      return a.key.localeCompare(b.key);
+    });
+
     const seqMap: Record<string, number> = {};
     sortedGroups.forEach((g, index) => {
       seqMap[g.key] = index + 1;
     });
     return seqMap;
   }, [flights]);
+
+  const archivedSeqNumbers = applicationSeqNumbers;
 
   // --- CORE SYSTEM DATA STREAMS ---
   const unifiedGroups = useMemo(() => {
@@ -1998,7 +2039,7 @@ export default function App() {
                           title={String(group.aftnNo || "TEKIL UCUS")}
                         >
                           <span className="text-xs font-black text-zinc-900 mr-2 bg-white px-2 py-0.5 rounded border border-zinc-900 font-mono shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                            #{idx + 1}
+                            #{applicationSeqNumbers[group.groupId] || idx + 1}
                           </span>
                           {String(group.aftnNo || "TEKIL UCUS")}
                         </div>
