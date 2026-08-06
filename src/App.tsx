@@ -522,54 +522,52 @@ export default function App() {
     if (currentIndex === -1) currentIndex = 0;
     const targetIndex = flowKeys.indexOf(targetStatusKey);
 
-    if (targetIndex <= currentIndex + 1) {
-      if (targetStatusKey === "MAIL_SENT") {
-        setSelectedFlightForMail(flightOrGroup);
-        setExcelPasteContent("");
-        setParsedTableData([]);
-        setCalculatedRecipients("");
-        setMissingStations([]);
-        setIsMailModalOpen(true);
-        return;
-      }
+    if (targetStatusKey === "MAIL_SENT") {
+      setSelectedFlightForMail(flightOrGroup);
+      setExcelPasteContent("");
+      setParsedTableData([]);
+      setCalculatedRecipients("");
+      setMissingStations([]);
+      setIsMailModalOpen(true);
+      return;
+    }
 
-      if (targetStatusKey === "APP_MADE") {
-        setSelectedFlightForAftn(flightOrGroup);
-        setAftnInput(flightOrGroup.aftnNo || "");
-        setAftnAppType(flightOrGroup.appType || flightsToCheck[0].appType || "yeniPermi");
-        setIsAftnModalOpen(true);
-        return;
-      }
+    if (targetStatusKey === "APP_MADE") {
+      setSelectedFlightForAftn(flightOrGroup);
+      setAftnInput(flightOrGroup.aftnNo || "");
+      setAftnAppType(flightOrGroup.appType || flightsToCheck[0].appType || "yeniPermi");
+      setIsAftnModalOpen(true);
+      return;
+    }
 
-      if (targetStatusKey === "APPROVED" && targetIndex > currentIndex) {
-        const mailDate = formatForMail(flightsToCheck[0].date);
-        let flCode = "";
-        const targetDest = String(flightsToCheck[0].dest || "").toUpperCase().trim();
-        if (SPECIAL_DESTINATIONS.includes(targetDest)) {
-          flCode = targetDest + " Turkish Civil Aviation Permission";
-        } else {
-          const dateRawStr = String(flightsToCheck[0].date || "");
-          flCode = dateRawStr.includes("-") || dateRawStr.includes(" ") ? "DONEMSEL DEGISIKLIK" : "MUNFERIT DEGISIKLIK";
-        }
-        const route = flightOrGroup.isBulk ? "COKLU PARKUR" : `${String(flightsToCheck[0].orig || "")}-${String(flightsToCheck[0].dest || "")}-${String(flightsToCheck[0].orig || "")}`;
-        const seferBilgisi = `${mailDate} ${flCode} ${route}`;
-        const mailtoUrl = `mailto:COCC@THY.COM,FOCCOPSSLOT@THY.COM?cc=cargoslot@thy.com&subject=${encodeURIComponent(
-          `${seferBilgisi} SHGM IZIN TEMINI`
-        )}&body=${encodeURIComponent(
-          `Sayin ilgililer,\n\n${seferBilgisi} ucusunun SHGM izinleri ekteki belgelerle birlikte basvurularak temin edilmistir.\n\nBilgilerinize arz eder, iyi calismalar dilerim.`
-        )}`;
-        triggerSafeMailto(mailtoUrl);
-        updateStatusGroupOrSingle(flightOrGroup, targetStatusKey);
-        return;
-      }
-
-      if (targetIndex < currentIndex) {
-        if (window.confirm("Durumu geriye almak istediginize emin misiniz?")) {
-          updateStatusGroupOrSingle(flightOrGroup, targetStatusKey);
-        }
+    if (targetStatusKey === "APPROVED") {
+      const mailDate = formatForMail(flightsToCheck[0].date);
+      let flCode = "";
+      const targetDest = String(flightsToCheck[0].dest || "").toUpperCase().trim();
+      if (SPECIAL_DESTINATIONS.includes(targetDest)) {
+        flCode = targetDest + " Turkish Civil Aviation Permission";
       } else {
+        const dateRawStr = String(flightsToCheck[0].date || "");
+        flCode = dateRawStr.includes("-") || dateRawStr.includes(" ") ? "DONEMSEL DEGISIKLIK" : "MUNFERIT DEGISIKLIK";
+      }
+      const route = flightOrGroup.isBulk ? "COKLU PARKUR" : `${String(flightsToCheck[0].orig || "")}-${String(flightsToCheck[0].dest || "")}-${String(flightsToCheck[0].orig || "")}`;
+      const seferBilgisi = `${mailDate} ${flCode} ${route}`;
+      const mailtoUrl = `mailto:COCC@THY.COM,FOCCOPSSLOT@THY.COM?cc=cargoslot@thy.com&subject=${encodeURIComponent(
+        `${seferBilgisi} SHGM IZIN TEMINI`
+      )}&body=${encodeURIComponent(
+        `Sayin ilgililer,\n\n${seferBilgisi} ucusunun SHGM izinleri ekteki belgelerle birlikte basvurularak temin edilmistir.\n\nBilgilerinize arz eder, iyi calismalar dilerim.`
+      )}`;
+      triggerSafeMailto(mailtoUrl);
+      updateStatusGroupOrSingle(flightOrGroup, targetStatusKey);
+      return;
+    }
+
+    if (targetIndex < currentIndex) {
+      if (window.confirm("Durumu geriye almak istediginize emin misiniz?")) {
         updateStatusGroupOrSingle(flightOrGroup, targetStatusKey);
       }
+    } else {
+      updateStatusGroupOrSingle(flightOrGroup, targetStatusKey);
     }
   };
 
@@ -784,10 +782,13 @@ export default function App() {
           }
 
           let newStatus = f.status;
-          if (approvedTs && (f.status === "PENDING" || f.status === "APP_MADE" || !f.status)) {
+          const enteredAftn = String(editGroupData.aftnNo || "").trim().toUpperCase();
+          if (approvedTs && (f.status === "PENDING" || f.status === "APP_MADE" || f.status === "MAIL_SENT" || !f.status)) {
             newStatus = "APPROVED";
+          } else if (!approvedTs && enteredAftn && (f.status === "PENDING" || f.status === "MAIL_SENT" || !f.status)) {
+            newStatus = "APP_MADE";
           } else if (!approvedTs && f.status === "APPROVED") {
-            newStatus = appMadeTs ? "APP_MADE" : "PENDING";
+            newStatus = appMadeTs || enteredAftn ? "APP_MADE" : "PENDING";
           }
 
           return {
@@ -1446,6 +1447,8 @@ export default function App() {
   }, [stationEmails, settingsSearch]);
 
   const renderWorkflowStepper = (group: any) => {
+    if (group.status === "APPROVED") return null;
+
     const isSpecial =
       group.hasSpecialDest || 
       (group.flights && group.flights.some((f: Flight) => SPECIAL_DESTINATIONS.includes(String(f.dest || "").toUpperCase())));
@@ -1462,7 +1465,6 @@ export default function App() {
             const stepIdx = flowKeys.indexOf(step.key);
             const isComp = curIdx >= stepIdx;
             const isNext = curIdx === stepIdx - 1;
-            const isCurrentPending = curIdx === stepIdx;
             let btnStyle = "bg-white border-2 border-zinc-900 text-zinc-400";
             if (isComp) btnStyle = "bg-[#C8102E] border-2 border-zinc-900 text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]";
             else if (isNext) btnStyle = "bg-zinc-900 border-2 border-zinc-950 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] scale-110";
@@ -1474,10 +1476,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => handleStatusClick(group, step.key)}
-                  disabled={!isNext && !isComp && !isCurrentPending}
-                  className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all focus:outline-none ${btnStyle} ${
-                    !isNext && !isComp && !isCurrentPending ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:scale-105 active:scale-95"
-                  }`}
+                  className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all focus:outline-none cursor-pointer hover:scale-110 active:scale-95 ${btnStyle}`}
                 >
                   {isComp ? <Check size={14} strokeWidth={3} className="text-white" /> : <step.icon size={12} strokeWidth={2.5} />}
                 </button>
@@ -1518,7 +1517,7 @@ export default function App() {
               <Plane className="h-5 w-5 text-white transform -rotate-45" strokeWidth={3} />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase text-zinc-900">SHGM DASHBOARD</h1>
+              <h1 className="text-[15px] font-black leading-tight tracking-tight uppercase text-zinc-900">SHGM İZİN TAKİP SİSTEMİ</h1>
               <p className="text-[9px] text-zinc-500 font-mono uppercase tracking-wider leading-none">v5.6.2 • PRODUCTION READY</p>
             </div>
           </div>
@@ -1909,7 +1908,7 @@ export default function App() {
                 {/* BAŞVURU KARTLARI GRID */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
                   {unifiedGroups.length > 0 ? (
-                    unifiedGroups.map((group: any) => {
+                    unifiedGroups.map((group: any, idx: number) => {
                   const isBulkGroup = group.isBulk || (group.flights && group.flights.length > 1);
                   const isCancelled = group.flights && group.flights[0] && group.flights[0].cancelled;
                   const isRejected = group.status === "REJECTED";
@@ -1922,44 +1921,53 @@ export default function App() {
                   const isUrgent = isPending && minDays <= 3;
                   const isWarning = isPending && minDays > 3 && minDays <= 7;
                   const isPast = isPending && minDays < 0;
-                  let borderClass = isCancelled
-                    ? "border-orange-200"
-                    : isRejected
-                    ? "border-red-200"
-                    : isSpecial
-                    ? "border-amber-300 ring-2 ring-amber-100"
-                    : isUrgent
-                    ? "border-red-200"
-                    : isWarning
-                    ? "border-orange-200"
-                    : "border-gray-200";
-                  let headerBg = isCancelled ? "bg-orange-50/50" : isRejected ? "bg-red-50/50" : isSpecial ? "bg-amber-50" : "bg-gray-50/50";
-                  let rowBgClass = isCancelled ? "bg-orange-50/40" : isRejected ? "bg-red-50/30" : "";
+                  let cardBorder = "border-amber-400";
+                  let headerBg = "bg-amber-100/90";
+                  let rowBgClass = "";
+
+                  if (isCancelled) {
+                    cardBorder = "border-red-500";
+                    headerBg = "bg-red-100/90";
+                    rowBgClass = "bg-red-50/20";
+                  } else if (isRejected) {
+                    cardBorder = "border-red-500";
+                    headerBg = "bg-red-100/90";
+                    rowBgClass = "bg-red-50/20";
+                  } else if (!isPending) {
+                    cardBorder = "border-emerald-500";
+                    headerBg = "bg-emerald-100/90";
+                    rowBgClass = "bg-emerald-50/20";
+                  } else {
+                    cardBorder = "border-amber-400";
+                    headerBg = "bg-amber-100/90";
+                    rowBgClass = "bg-amber-50/10";
+                  }
+
                   let statusPill = null;
                   if (isCancelled)
                     statusPill = (
-                      <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px] font-bold tracking-wide">IPTAL</span>
+                      <span className="px-2 py-0.5 bg-red-600 text-white rounded text-[10px] font-black tracking-wide border border-zinc-900 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] uppercase">İPTAL</span>
                     );
                   else if (isRejected)
                     statusPill = (
-                      <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-bold tracking-wide">REDDEDILDI</span>
+                      <span className="px-2 py-0.5 bg-red-600 text-white rounded text-[10px] font-black tracking-wide border border-zinc-900 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] uppercase">REDDEDİLDİ</span>
                     );
                   else if (!isPending)
                     statusPill = (
-                      <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded text-[10px] font-bold tracking-wide">ONAYLANDI</span>
+                      <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-black tracking-wide border border-zinc-900 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] uppercase">ONAYLANDI</span>
                     );
                   else if (isPast)
                     statusPill = (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-[10px] font-bold tracking-wide">GECTI</span>
+                      <span className="px-2 py-0.5 bg-zinc-800 text-white rounded text-[10px] font-black tracking-wide border border-zinc-900 uppercase">GEÇTİ</span>
                     );
                   else
                     statusPill = (
                       <span
-                        className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide ${
-                          isUrgent ? "bg-red-100 text-[#C8102E]" : "bg-blue-50 text-blue-600 border border-blue-100"
+                        className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wide border border-zinc-900 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] ${
+                          isUrgent ? "bg-red-600 text-white" : "bg-amber-300 text-zinc-950"
                         }`}
                       >
-                        {minDays} GUN KALDI
+                        {minDays} GÜN KALDI
                       </span>
                     );
 
@@ -1981,19 +1989,17 @@ export default function App() {
                   return (
                     <div
                       key={group.groupId}
-                      className={`bg-white rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] hover:shadow-[6px_6px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex flex-col overflow-hidden h-full min-h-[310px] ${rowBgClass}`}
+                      className={`bg-white rounded-2xl border-2 ${cardBorder} shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] hover:shadow-[6px_6px_0px_0px_rgba(24,24,27,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex flex-col overflow-hidden h-full min-h-[310px] ${rowBgClass}`}
                     >
                       {/* HEADER */}
-                      <div className={`p-4 border-b-2 border-zinc-900 flex justify-between items-center shrink-0 ${headerBg}`}>
+                      <div className={`p-3.5 border-b-2 ${cardBorder} flex justify-between items-center shrink-0 ${headerBg}`}>
                         <div
-                          className="font-mono font-black text-sm text-zinc-900 tracking-tight truncate pr-2 flex items-center"
+                          className="font-mono font-black text-sm text-zinc-950 tracking-tight truncate pr-2 flex items-center"
                           title={String(group.aftnNo || "TEKIL UCUS")}
                         >
-                          {operationsTab === "COMPLETED" && archivedSeqNumbers[group.groupId] && (
-                            <span className="text-xs font-bold text-zinc-500 mr-2 hover:text-zinc-900 transition-colors bg-zinc-200/60 px-1.5 py-0.5 rounded border border-zinc-400">
-                              #{archivedSeqNumbers[group.groupId]}
-                            </span>
-                          )}
+                          <span className="text-xs font-black text-zinc-900 mr-2 bg-white px-2 py-0.5 rounded border border-zinc-900 font-mono shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                            #{idx + 1}
+                          </span>
                           {String(group.aftnNo || "TEKIL UCUS")}
                         </div>
                         {statusPill}
