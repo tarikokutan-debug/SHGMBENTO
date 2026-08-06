@@ -45,3 +45,15 @@ export interface AppFees {
 export interface StationEmails {
   [stationCode: string]: string[];
 }
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      isElectron: boolean;
+      selectSharedFile: () => Promise<string | null>;
+      readLocalJson: (filePath: string) => Promise<{ success: boolean; data?: any; lastModified?: number; error?: string }>;
+      writeLocalJson: (filePath: string, data: any) => Promise<{ success: boolean; lastModified?: number; error?: string }>;
+      onSelectedSharedFile: (callback: (filePath: string) => void) => void;
+    };
+  }
+}

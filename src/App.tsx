@@ -205,16 +205,18 @@ export default function App() {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // --- THEME SYSTEM ---
-  const [theme, setTheme] = useState<"THY" | "APPLE">(() => {
+  const [theme, setTheme] = useState<"KURUMSAL" | "MINIMAL">(() => {
     try {
       const saved = localStorage.getItem("shgm_theme");
-      return (saved === "THY" || saved === "APPLE") ? saved : "THY";
+      return (saved === "KURUMSAL" || saved === "MINIMAL" || saved === "THY" || saved === "APPLE")
+        ? (saved === "APPLE" || saved === "MINIMAL" ? "MINIMAL" : "KURUMSAL")
+        : "KURUMSAL";
     } catch {
-      return "THY";
+      return "KURUMSAL";
     }
   });
 
-  const changeTheme = (newTheme: "THY" | "APPLE") => {
+  const changeTheme = (newTheme: "KURUMSAL" | "MINIMAL") => {
     setTheme(newTheme);
     localStorage.setItem("shgm_theme", newTheme);
   };
@@ -249,6 +251,198 @@ export default function App() {
     localStorage.removeItem("shgm_backup_logs");
   }, []);
 
+  // --- SHARED FILE & ELECTRON 15S AUTO SYNC ENGINE ---
+  const [sharedFilePath, setSharedFilePath] = useState<string>(() => {
+    try {
+      return localStorage.getItem("shgm_shared_file_path") || "shared_data/shgm_database.json";
+    } catch {
+      return "shared_data/shgm_database.json";
+    }
+  });
+
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("shgm_auto_sync_enabled");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [lastServerModified, setLastServerModified] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+
+  const showSyncToast = useCallback((msg: string) => {
+    setSyncToastMessage(msg);
+    setTimeout(() => {
+      setSyncToastMessage(null);
+    }, 4500);
+  }, []);
+
+  const pushToSharedFileSync = useCallback(
+    async (overrideFlights?: any[], overrideEmails?: any, overrideFees?: any) => {
+      const targetF = overrideFlights || flights;
+      const targetE = overrideEmails || stationEmails;
+      const targetFees = overrideFees || appFees;
+
+      if (!targetF) return;
+
+      try {
+        setIsSyncing(true);
+        if (typeof window !== "undefined" && window.electronAPI?.isElectron) {
+          const payload = {
+            version: "5.6.2",
+            lastUpdated: Date.now(),
+            flights: targetF,
+            stationEmails: targetE,
+            appFees: targetFees,
+          };
+          const res = await window.electronAPI.writeLocalJson(sharedFilePath, payload);
+          if (res.success && res.lastModified) {
+            setLastServerModified(res.lastModified);
+            setLastSyncTime(new Date());
+          }
+        } else {
+          const response = await fetch("/api/file-sync/write", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filePath: sharedFilePath,
+              flights: targetF,
+              stationEmails: targetE,
+              appFees: targetFees,
+              clientTimestamp: Date.now(),
+            }),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.lastModified) {
+              setLastServerModified(data.lastModified);
+              setLastSyncTime(new Date());
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Shared file auto-push skipped:", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [flights, stationEmails, appFees, sharedFilePath]
+  );
+
+  const checkAndSyncSharedFile = useCallback(
+    async (isManualTrigger = false) => {
+      try {
+        setIsSyncing(true);
+        let resLastModified = 0;
+        let remoteData: any = null;
+
+        if (typeof window !== "undefined" && window.electronAPI?.isElectron) {
+          const res = await window.electronAPI.readLocalJson(sharedFilePath);
+          if (res.success && res.data) {
+            remoteData = res.data;
+            resLastModified = res.lastModified || 0;
+          }
+        } else {
+          const statusRes = await fetch(`/api/file-sync/status?filePath=${encodeURIComponent(sharedFilePath)}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.exists) {
+              resLastModified = statusData.lastModified;
+              if (resLastModified > lastServerModified || isManualTrigger) {
+                const readRes = await fetch(`/api/file-sync/read?filePath=${encodeURIComponent(sharedFilePath)}`);
+                if (readRes.ok) {
+                  const readData = await readRes.json();
+                  if (readData.success && readData.data) {
+                    remoteData = readData.data;
+                  }
+                }
+              }
+            } else if (isLoaded && flights.length > 0) {
+              // File doesn't exist on server yet, write current local data
+              await pushToSharedFileSync();
+              return;
+            }
+          }
+        }
+
+        if (remoteData && remoteData.flights && Array.isArray(remoteData.flights)) {
+          if (resLastModified > lastServerModified || isManualTrigger) {
+            setFlights(remoteData.flights);
+            if (remoteData.stationEmails && typeof remoteData.stationEmails === "object") {
+              setStationEmails(remoteData.stationEmails);
+            }
+            if (remoteData.appFees && typeof remoteData.appFees === "object") {
+              setAppFees(remoteData.appFees);
+            }
+            setLastServerModified(resLastModified);
+            setLastSyncTime(new Date());
+            addBackupLog("AUTO", "SUCCESS", `Ortak dosyadan ${remoteData.flights.length} uçuş senkronize edildi (15s Otomatik Kontrol).`);
+            if (!isManualTrigger) {
+              showSyncToast("15s Otomatik Kontrol: Ortak sunucu dosyasından yeni değişiklikler alındı.");
+            } else {
+              showSyncToast("Ortak dosya başarıyla senkronize edildi.");
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Shared file sync check failed:", err);
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [sharedFilePath, lastServerModified, flights, isLoaded, pushToSharedFileSync, addBackupLog, showSyncToast]
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("shgm_shared_file_path", sharedFilePath);
+    } catch (e) {
+      console.warn("Storage item save failed", e);
+    }
+  }, [sharedFilePath]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("shgm_auto_sync_enabled", JSON.stringify(autoSyncEnabled));
+    } catch (e) {
+      console.warn("Storage item save failed", e);
+    }
+  }, [autoSyncEnabled]);
+
+  // 15-second polling timer
+  useEffect(() => {
+    if (!autoSyncEnabled || !isLoaded) return;
+
+    const initialTimer = setTimeout(() => {
+      checkAndSyncSharedFile(false);
+    }, 2000);
+
+    const syncInterval = setInterval(() => {
+      checkAndSyncSharedFile(false);
+    }, 15000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(syncInterval);
+    };
+  }, [autoSyncEnabled, isLoaded, checkAndSyncSharedFile]);
+
+  // Listen for Electron shared file selection from menu
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.electronAPI?.onSelectedSharedFile) {
+      window.electronAPI.onSelectedSharedFile((selectedPath) => {
+        if (selectedPath) {
+          setSharedFilePath(selectedPath);
+          showSyncToast(`Ortak dosya yolu güncellendi: ${selectedPath}`);
+        }
+      });
+    }
+  }, [showSyncToast]);
+
   const lastBackupTime = useMemo(() => {
     const successLogs = backupLogs.filter(log => log.status === "SUCCESS" && (log.type === "MANUAL" || log.type === "AUTO"));
     if (successLogs.length > 0) {
@@ -259,8 +453,8 @@ export default function App() {
 
   useEffect(() => {
     try {
-      document.documentElement.classList.remove("theme-thy", "theme-apple");
-      document.body.classList.remove("theme-thy", "theme-apple");
+      document.documentElement.classList.remove("theme-thy", "theme-apple", "theme-kurumsal", "theme-minimal");
+      document.body.classList.remove("theme-thy", "theme-apple", "theme-kurumsal", "theme-minimal");
       
       const themeClass = `theme-${theme.toLowerCase()}`;
       document.documentElement.classList.add(themeClass);
@@ -270,7 +464,7 @@ export default function App() {
     }
   }, [theme]);
 
-  const [settingsTab, setSettingsTab] = useState<"EMAILS" | "FEES" | "THEMES" | "DATA">("EMAILS");
+  const [settingsTab, setSettingsTab] = useState<"SYNC" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA">("SYNC");
 
   // Load local state initially
   useEffect(() => {
@@ -308,14 +502,20 @@ export default function App() {
     setIsLoaded(true);
   }, []);
 
-  // Sync back local storage changes
+  // Sync back local storage & push to shared server/local file
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(flights));
       localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(stationEmails));
       localStorage.setItem(FEES_STORAGE_KEY, JSON.stringify(appFees));
+
+      // Auto write to shared file
+      const timer = setTimeout(() => {
+        pushToSharedFileSync();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, [flights, stationEmails, appFees, isLoaded]);
+  }, [flights, stationEmails, appFees, isLoaded, pushToSharedFileSync]);
 
 
 
@@ -1562,28 +1762,44 @@ export default function App() {
               <p className="text-[9px] text-zinc-500 font-mono uppercase tracking-wider leading-none">v5.6.2 • PRODUCTION READY</p>
             </div>
           </div>
-          <div className="hidden md:flex bg-zinc-100 p-1 rounded-xl border-2 border-zinc-900">
-            {[
-              { key: "OPERATIONS", label: "Operasyon Masası" },
-              { key: "REPORTING", label: "Raporlama" },
-              { key: "SETTINGS", label: "Ayarlar" },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setCurrentView(key);
-                  setStatusFilter("ALL");
-                  setDestFilter("ALL");
-                  setSearchTerm("");
-                  setDateFilter("");
-                }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all duration-200 ${
-                  currentView === key ? "bg-zinc-900 text-white" : "text-zinc-650 hover:text-zinc-900"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="hidden md:flex items-center gap-3">
+            <button
+              onClick={() => {
+                setCurrentView("SETTINGS");
+                setSettingsTab("SYNC");
+              }}
+              title="15 Saniyede Bir Otomatik Klasör Senkronizasyonu"
+              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-zinc-900 px-3 py-1.5 rounded-xl transition cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold text-emerald-950 font-mono"
+            >
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${autoSyncEnabled ? "bg-emerald-400" : "bg-zinc-400"} opacity-75`}></span>
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
+              </span>
+              <span>15s Otomatik Senkronize</span>
+            </button>
+            <div className="bg-zinc-100 p-1 rounded-xl border-2 border-zinc-900 flex">
+              {[
+                { key: "OPERATIONS", label: "Operasyon Masası" },
+                { key: "REPORTING", label: "Raporlama" },
+                { key: "SETTINGS", label: "Ayarlar" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setCurrentView(key);
+                    setStatusFilter("ALL");
+                    setDestFilter("ALL");
+                    setSearchTerm("");
+                    setDateFilter("");
+                  }}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all duration-200 ${
+                    currentView === key ? "bg-zinc-900 text-white" : "text-zinc-650 hover:text-zinc-900"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="md:hidden flex bg-zinc-100 p-1 rounded-lg border-2 border-zinc-900">
             <button
@@ -1616,6 +1832,17 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {/* FLOATING 15S SYNC NOTIFICATION TOAST */}
+      {syncToastMessage && (
+        <div className="fixed top-24 right-6 z-50 bg-zinc-900 text-white border-2 border-emerald-500 px-4 py-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-3 animate-fade-in">
+          <span className="flex h-3 w-3 relative shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <p className="text-xs font-bold font-mono text-emerald-300">{syncToastMessage}</p>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 md:px-6 mt-8">
         {currentView === "OPERATIONS" && (
@@ -2229,6 +2456,14 @@ export default function App() {
             backupLogs={backupLogs}
             lastBackupTime={lastBackupTime}
             clearBackupLogs={clearBackupLogs}
+            sharedFilePath={sharedFilePath}
+            setSharedFilePath={setSharedFilePath}
+            autoSyncEnabled={autoSyncEnabled}
+            setAutoSyncEnabled={setAutoSyncEnabled}
+            lastSyncTime={lastSyncTime}
+            isSyncing={isSyncing}
+            checkAndSyncSharedFile={checkAndSyncSharedFile}
+            pushToSharedFileSync={pushToSharedFileSync}
           />
         )}
       </main>

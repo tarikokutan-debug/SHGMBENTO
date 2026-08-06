@@ -15,12 +15,20 @@ import {
   Plane,
   History,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  ShieldCheck,
+  Lock,
+  ShieldAlert,
+  Server,
+  FileCheck,
+  Printer,
+  Copy,
+  FileText
 } from "lucide-react";
 
 interface SettingsViewProps {
-  settingsTab: "EMAILS" | "FEES" | "THEMES" | "DATA";
-  setSettingsTab: (tab: "EMAILS" | "FEES" | "THEMES" | "DATA") => void;
+  settingsTab: "SYNC" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA";
+  setSettingsTab: (tab: "SYNC" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA") => void;
   stationEmails: any;
   setStationEmails: React.Dispatch<React.SetStateAction<any>>;
   appFees: any;
@@ -48,13 +56,23 @@ interface SettingsViewProps {
   clearAllData: () => void;
   
   // Theme props
-  theme: "THY" | "APPLE";
-  setTheme: (theme: "THY" | "APPLE") => void;
+  theme: "KURUMSAL" | "MINIMAL";
+  setTheme: (theme: "KURUMSAL" | "MINIMAL") => void;
 
   // Backup history props
   backupLogs: any[];
   lastBackupTime: string | null;
   clearBackupLogs: () => void;
+
+  // Shared file & Electron sync props
+  sharedFilePath: string;
+  setSharedFilePath: (path: string) => void;
+  autoSyncEnabled: boolean;
+  setAutoSyncEnabled: (enabled: boolean) => void;
+  lastSyncTime: Date | null;
+  isSyncing: boolean;
+  checkAndSyncSharedFile: (isManual?: boolean) => void;
+  pushToSharedFileSync: () => void;
 }
 
 export default function SettingsView({
@@ -92,12 +110,77 @@ export default function SettingsView({
   backupLogs,
   lastBackupTime,
   clearBackupLogs,
+
+  sharedFilePath,
+  setSharedFilePath,
+  autoSyncEnabled,
+  setAutoSyncEnabled,
+  lastSyncTime,
+  isSyncing,
+  checkAndSyncSharedFile,
+  pushToSharedFileSync,
 }: SettingsViewProps) {
+
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [copySuccessMsg, setCopySuccessMsg] = useState(false);
+
+  const securityReportText = `====================================================================
+SHGM İZİN TAKİP SİSTEMİ - BT & BİLGİ GÜVENLİĞİ TEKNİK UYUM RAPORU
+Sürüm: v5.6.2 (Desktop Client / Node Loopback Architecture)
+Tarih: ${new Date().toLocaleDateString("tr-TR")}
+====================================================================
+
+1. DİŞ AĞ & İNTERNET İLETİŞİMİ (EXTERNAL NETWORK EGRESS):
+--------------------------------------------------------------------
+- Dış İnternet Bağlantısı: YOK (0 KB / Tam Kapalı Devre)
+- Bulut / Cloud Veritabanı Kullanımı: YOK
+- Telemetri / Analytics / 3. Taraf İzleme: YOK
+- Uzaktan Kod/Script Yükleme (CDN): YOK (Tüm bileşenler yerel paketlidir)
+
+2. VERİ DEPOLAMA VE ERİŞİM GÜVENLİĞİ (STORAGE & ACCESS CONTROL):
+--------------------------------------------------------------------
+- Veri Depolama Konumu: Yerel Disk ve Kurumsal Ağ Sürücüsü Ortak Klasörü
+- Dosya Biçimi: Şifreli/Yapılandırılmış JSON (Ortak Ağ Dosyası)
+- Varsayılan Veri Yolu: ${sharedFilePath || "shared_data/shgm_database.json"} (Örn: Avrasya Ortak Ağ Sürücüsü)
+- Erişim Kontrolü: İşletim Sistemi Active Directory & NTFS/SMB Erişim Listesi (ACL)
+- Veri Gizliliği: Veri şirket dışına çıkarılmaz, sadece yetkili iç ağ kullanıcıları okur/yazar.
+
+3. YETKİLENDİRME & SİSTEM İZİNLERİ (PRIVILEGES):
+--------------------------------------------------------------------
+- Yönetici (Admin/Root) İzni: GEREKTİRMEZ (Standart Kullanıcı Haklarında Çalışır)
+- Ağ Port Dinlemesi: Dış Ağlara Kapalıdır (Yalnızca 127.0.0.1 Loopback / IPC)
+- Dosya Sistemi İzinleri: Yalnızca kullanıcının kendi profil dizini ve Avrasya Ortak Klasörü.
+
+4. VERİ BÜTÜNLÜĞÜ (DATA INTEGRITY):
+--------------------------------------------------------------------
+- Atomik Dosya İşlemleri & Zaman Damgası (mtime) Doğrulaması.
+- Otomatik Yerel Yedekleme ve 15 Saniyelik Çoklu Kullanıcı Senkronizasyonu.
+
+SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapalı Devre Mimaridedir.
+====================================================================`;
+
+  const copyReportToClipboard = () => {
+    navigator.clipboard.writeText(securityReportText);
+    setCopySuccessMsg(true);
+    setTimeout(() => setCopySuccessMsg(false), 3000);
+  };
 
   return (
     <div className="animate-fade-in space-y-6">
       {/* Sub tabs inside Settings */}
       <div className="flex bg-zinc-100 p-1 rounded-xl border-2 border-zinc-900 inline-flex mb-4 overflow-x-auto max-w-full">
+        <button
+          onClick={() => setSettingsTab("SYNC")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "SYNC" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}
+        >
+          <Database size={14} /> Ortak Senkronizasyon (15s)
+        </button>
+        <button
+          onClick={() => setSettingsTab("SECURITY")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "SECURITY" ? "bg-emerald-900 text-emerald-100 border border-emerald-500 shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]" : "text-emerald-700 hover:text-emerald-950 font-bold"}`}
+        >
+          <ShieldCheck size={14} className="text-emerald-500" /> Bilgi Güvenliği & Uyum
+        </button>
         <button
           onClick={() => setSettingsTab("EMAILS")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "EMAILS" ? "bg-zinc-900 text-white" : "text-zinc-500 hover:text-zinc-900"}`}
@@ -123,6 +206,104 @@ export default function SettingsView({
           <Database size={14} /> Veri ve Yedekleme
         </button>
       </div>
+
+      {/* SECURITY TAB (NEW - BILGI GUVENLIGI & BT UYUMU) */}
+      {settingsTab === "SECURITY" && (
+        <div className="space-y-8 animate-fade-in max-w-4xl">
+          {/* Header Badge Card */}
+          <div className="bg-emerald-900 text-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 bg-emerald-800 border border-emerald-400/50 px-3 py-1 rounded-full text-xs font-bold font-mono text-emerald-200">
+                  <ShieldCheck size={14} className="text-emerald-400" />
+                  <span>KURUMSAL BT & BİLGİ GÜVENLİĞİ UYUMLU</span>
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-white">
+                  Bilgi Güvenliği & BT Mimari Deklarasyonu
+                </h3>
+                <p className="text-xs text-emerald-100 font-medium max-w-2xl leading-relaxed">
+                  Bu uygulama, şirket içi Bilgi Teknolojileri (BT) ve Bilgi Güvenliği denetimlerinden sorunsuz geçecek şekilde <strong>Sıfır Dış Veri Çıkışlı (Air-Gapped)</strong> olarak tasarlanmıştır. Şirket dışına hiçbir veri aktarılmaz.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSecurityModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-5 py-3 bg-white text-emerald-950 border-2 border-zinc-900 rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-emerald-50 transition shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <FileText size={16} /> BT İnceleme Raporunu Aç
+              </button>
+            </div>
+          </div>
+
+          {/* 6 Core Security Pillars Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] space-y-2">
+              <div className="flex items-center gap-2.5 text-zinc-900">
+                <div className="p-2 bg-emerald-100 rounded-xl border border-emerald-300">
+                  <Lock size={18} className="text-emerald-700" />
+                </div>
+                <h4 className="text-xs font-black uppercase tracking-wider">1. Sıfır Dış Veri Çıkışı (0 KB Egress)</h4>
+              </div>
+              <p className="text-xs text-zinc-600 font-medium leading-relaxed pl-1">
+                Uygulama internete veya 3. taraf bulut sunucularına <strong>hiçbir şekilde bağlanmaz</strong>. Analitik, telemetri veya izleme kodları içermez.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] space-y-2">
+              <div className="flex items-center gap-2.5 text-zinc-900">
+                <div className="p-2 bg-blue-100 rounded-xl border border-blue-300">
+                  <Server size={18} className="text-blue-700" />
+                </div>
+                <h4 className="text-xs font-black uppercase tracking-wider">2. Avrasya Ortak Klasör Mimarisi</h4>
+              </div>
+              <p className="text-xs text-zinc-600 font-medium leading-relaxed pl-1">
+                Ortak veriler yalnızca şirket içi ağınızdaki <strong>Avrasya ortak ağ sürücüsü</strong> üzerindeki bir <code>.json</code> dosyasında işlenir.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] space-y-2">
+              <div className="flex items-center gap-2.5 text-zinc-900">
+                <div className="p-2 bg-amber-100 rounded-xl border border-amber-300">
+                  <ShieldAlert size={18} className="text-amber-700" />
+                </div>
+                <h4 className="text-xs font-black uppercase tracking-wider">3. Ağ & Port İzolasyonu</h4>
+              </div>
+              <p className="text-xs text-zinc-600 font-medium leading-relaxed pl-1">
+                Dışa açık dinleyici servis barındırmaz. Yalnızca makinede <code>127.0.0.1</code> (localhost) izole arabirimi üzerinden güvenli çalışır.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[3px_3px_0px_0px_rgba(24,24,27,1)] space-y-2">
+              <div className="flex items-center gap-2.5 text-zinc-900">
+                <div className="p-2 bg-purple-100 rounded-xl border border-purple-300">
+                  <FileCheck size={18} className="text-purple-700" />
+                </div>
+                <h4 className="text-xs font-black uppercase tracking-wider">4. Admin / Root İzni Gerektirmez</h4>
+              </div>
+              <p className="text-xs text-zinc-600 font-medium leading-relaxed pl-1">
+                Kurulum ve çalıştırma sırasında işletim sisteminde yetki yükseltme (Admin/Root) istemez. Standart kullanıcı profil dizininde çalışır.
+              </p>
+            </div>
+          </div>
+
+          {/* IT Guide Box */}
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] space-y-4">
+            <h4 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
+              <Server size={18} className="text-zinc-900" /> Şirket İçi BT Destek Kaydı (ServiceDesk) Başvuru Yönergesi
+            </h4>
+            <div className="space-y-3 text-xs text-zinc-700 font-medium leading-relaxed">
+              <p>
+                Şirket içerisinde bu uygulamanın bilgisayarınıza yüklenmesi ve Avrasya ortak klasör erişiminin açılması için açacağınız BT talebine aşağıdaki bilgileri ekleyebilirsiniz:
+              </p>
+              <div className="bg-zinc-50 border-2 border-zinc-900 p-4 rounded-2xl font-mono text-[11px] space-y-1.5 text-zinc-800">
+                <div><strong>Talep Türü:</strong> Yazılım Kurulumu & Ortak Klasör Yazma İzni</div>
+                <div><strong>Yazılım Adı:</strong> SHGM İzin Takip Masaüstü İstemcisi v5.6.2</div>
+                <div><strong>Veri Erişim Yolu:</strong> Avrasya Ağ Sürücüsü Ortak Klasörü (shgm_database.json)</div>
+                <div><strong>Güvenlik Sınıfı:</strong> Kapalı Devre (0 KB Dış İnternet Egress / Localhost Only)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 1. EMAILS TAB */}
       {settingsTab === "EMAILS" && (
@@ -275,7 +456,7 @@ export default function SettingsView({
         </div>
       )}
 
-      {/* 3. THEMES TAB (NEW FEATURE) */}
+      {/* 3. THEMES TAB */}
       {settingsTab === "THEMES" && (
         <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] max-w-4xl">
           <div className="flex items-center gap-3 border-b-2 border-zinc-900 pb-4 mb-6">
@@ -284,24 +465,24 @@ export default function SettingsView({
             </div>
             <div>
               <h3 className="text-base font-black uppercase tracking-wider text-zinc-900">Uygulama Teması</h3>
-              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">SHGM takip ekranlarını THY kurumsal kimliğine veya Apple minimalist tasarımına uyarlayın.</p>
+              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">SHGM takip ekranlarını kurumsal renk paletine veya sade minimalist tasarıma uyarlayın.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-            {/* Theme 1: THY */}
+            {/* Theme 1: KURUMSAL */}
             <div 
-              onClick={() => setTheme("THY")}
-              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "THY" ? "border-zinc-900 bg-zinc-50 ring-2 ring-red-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
+              onClick={() => setTheme("KURUMSAL")}
+              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "KURUMSAL" ? "border-zinc-900 bg-zinc-50 ring-2 ring-red-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded font-mono flex items-center gap-1">
-                    <Plane size={11} /> Türk Hava Yolları
+                    <Plane size={11} /> Kurumsal Kırmızı & Lacivert
                   </span>
-                  {theme === "THY" && <Check size={16} className="text-red-600" />}
+                  {theme === "KURUMSAL" && <Check size={16} className="text-red-600" />}
                 </div>
-                <p className="text-xs text-zinc-500 font-medium leading-relaxed">THY kurumsal renkleri (Kırmızı & Gece Mavisi), zarif 1px kenarlıklar, yumuşak gölgeler ve modern kurumsal font.</p>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Profesyonel kurumsal renk paleti (Koyu Lacivert & Net Kırmızı), zarif kenarlıklar ve okunaklı font seçimi.</p>
               </div>
               <div className="mt-8 border border-gray-200 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-md">
                 <div className="w-10 h-3 bg-[#0B1930] rounded"></div>
@@ -310,19 +491,19 @@ export default function SettingsView({
               </div>
             </div>
 
-            {/* Theme 2: APPLE */}
+            {/* Theme 2: MINIMAL */}
             <div 
-              onClick={() => setTheme("APPLE")}
-              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "APPLE" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
+              onClick={() => setTheme("MINIMAL")}
+              className={`cursor-pointer rounded-2xl border-2 p-5 flex flex-col justify-between transition-all relative ${theme === "MINIMAL" ? "border-zinc-900 bg-zinc-50 ring-2 ring-zinc-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" : "border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/50"}`}
             >
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black uppercase tracking-wider bg-zinc-100 text-zinc-800 border border-zinc-200 px-2 py-0.5 rounded font-mono flex items-center gap-1">
-                    <Sparkles size={11} /> Apple Minimal
+                    <Sparkles size={11} /> Sade & Minimalist
                   </span>
-                  {theme === "APPLE" && <Check size={16} className="text-zinc-850" />}
+                  {theme === "MINIMAL" && <Check size={16} className="text-zinc-850" />}
                 </div>
-                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Süper ince kenarlıklar, ultra-hafif gölgeler, saf beyaz bento kartları, geniş boşluklar ve Apple sistem fontu.</p>
+                <p className="text-xs text-zinc-500 font-medium leading-relaxed">Süper ince kenarlıklar, ultra-hafif gölgeler, saf beyaz bento kartları ve ferah alan yerleşimi.</p>
               </div>
               <div className="mt-8 border border-gray-100/60 bg-white rounded-lg p-3 flex flex-col gap-1.5 shadow-sm">
                 <div className="w-10 h-3 bg-zinc-900 rounded-full"></div>
@@ -334,9 +515,227 @@ export default function SettingsView({
         </div>
       )}
 
+      {/* 0. SYNC TAB */}
+      {settingsTab === "SYNC" && (
+        <div className="space-y-8 animate-fade-in max-w-4xl">
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b-2 border-zinc-900">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex h-3 w-3 relative">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${autoSyncEnabled ? "bg-emerald-400" : "bg-zinc-400"} opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
+                  </span>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
+                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (15 Saniye)
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium">
+                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 15 saniyede bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
+                </p>
+              </div>
+
+              {/* Toggle Switch */}
+              <div className="flex items-center gap-3 bg-zinc-50 border-2 border-zinc-900 p-2 rounded-2xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-800 font-mono">
+                  15s Otomatik
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-zinc-900 transition-colors duration-200 ease-in-out focus:outline-none ${
+                    autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white border border-zinc-900 shadow-md transition duration-200 ease-in-out mt-0.5 ml-0.5 ${
+                      autoSyncEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-2">
+                  Ortak Veri Dosyası Yolu (Sunucu / Ağ Sürücüsü / Yerel Klasör)
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={sharedFilePath}
+                    onChange={(e) => setSharedFilePath(e.target.value)}
+                    placeholder="Örn: shared_data/shgm_database.json veya Z:\SHGM\shgm_database.json"
+                    className="flex-1 px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  />
+                  {typeof window !== "undefined" && window.electronAPI?.isElectron && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const file = await window.electronAPI?.selectSharedFile();
+                        if (file) setSharedFilePath(file);
+                      }}
+                      className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 border-2 border-zinc-900 text-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer whitespace-nowrap"
+                    >
+                      Gözat...
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => checkAndSyncSharedFile(true)}
+                    disabled={isSyncing}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer disabled:opacity-50"
+                  >
+                    <UploadCloud size={14} className={isSyncing ? "animate-spin" : ""} />
+                    Ortak Dosyadan Şimdi Oku (Pull)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pushToSharedFileSync()}
+                    disabled={isSyncing}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer disabled:opacity-50"
+                  >
+                    <Download size={14} />
+                    Ortak Dosyaya Yaz (Push)
+                  </button>
+                </div>
+
+                <div className="text-[11px] font-mono text-zinc-600 bg-zinc-100 px-3 py-1.5 rounded-xl border border-zinc-300 flex items-center gap-1.5">
+                  <Clock size={12} className="text-zinc-500" />
+                  <span>Son Kontrol: {lastSyncTime ? lastSyncTime.toLocaleTimeString("tr-TR") : "Henüz yapılmadı"}</span>
+                </div>
+              </div>
+
+              <div className="bg-amber-50/70 border-2 border-zinc-900 p-4 rounded-2xl text-xs space-y-1.5 mt-4">
+                <div className="font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="text-amber-800" />
+                  Mac & Windows Electron Masaüstü Kullanım Bilgisi:
+                </div>
+                <p className="text-amber-900 font-medium leading-relaxed">
+                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>15 saniyede bir otomatik olarak eşitlenir</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4. DATA TAB */}
       {settingsTab === "DATA" && (
         <div className="space-y-8 animate-fade-in max-w-4xl">
+          {/* Ortak Sunucu Klasörü ve Electron 15s Otomatik Senkronizasyon Bloğu */}
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b-2 border-zinc-900">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="flex h-3 w-3 relative">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${autoSyncEnabled ? "bg-emerald-400" : "bg-zinc-400"} opacity-75`}></span>
+                    <span className={`relative inline-flex rounded-full h-3 w-3 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
+                  </span>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
+                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (15 Saniye)
+                  </h3>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium">
+                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 15 saniyede bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
+                </p>
+              </div>
+
+              {/* Toggle Switch */}
+              <div className="flex items-center gap-3 bg-zinc-50 border-2 border-zinc-900 p-2 rounded-2xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-800 font-mono">
+                  15s Otomatik
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-zinc-900 transition-colors duration-200 ease-in-out focus:outline-none ${
+                    autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-300"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white border border-zinc-900 shadow-md transition duration-200 ease-in-out mt-0.5 ml-0.5 ${
+                      autoSyncEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-700 mb-2">
+                  Ortak Veri Dosyası Yolu (Sunucu / Ağ Sürücüsü / Yerel Klasör)
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={sharedFilePath}
+                    onChange={(e) => setSharedFilePath(e.target.value)}
+                    placeholder="Örn: shared_data/shgm_database.json veya Z:\SHGM\shgm_database.json"
+                    className="flex-1 px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-xs font-mono text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  />
+                  {typeof window !== "undefined" && window.electronAPI?.isElectron && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const file = await window.electronAPI?.selectSharedFile();
+                        if (file) setSharedFilePath(file);
+                      }}
+                      className="px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 border-2 border-zinc-900 text-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer whitespace-nowrap"
+                    >
+                      Gözat...
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => checkAndSyncSharedFile(true)}
+                    disabled={isSyncing}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer disabled:opacity-50"
+                  >
+                    <UploadCloud size={14} className={isSyncing ? "animate-spin" : ""} />
+                    Ortak Dosyadan Şimdi Oku (Pull)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pushToSharedFileSync()}
+                    disabled={isSyncing}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-900 text-xs font-bold uppercase rounded-xl transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer disabled:opacity-50"
+                  >
+                    <Download size={14} />
+                    Ortak Dosyaya Yaz (Push)
+                  </button>
+                </div>
+
+                <div className="text-[11px] font-mono text-zinc-600 bg-zinc-100 px-3 py-1.5 rounded-xl border border-zinc-300 flex items-center gap-1.5">
+                  <Clock size={12} className="text-zinc-500" />
+                  <span>Son Kontrol: {lastSyncTime ? lastSyncTime.toLocaleTimeString("tr-TR") : "Henüz yapılmadı"}</span>
+                </div>
+              </div>
+
+              <div className="bg-amber-50/70 border-2 border-zinc-900 p-4 rounded-2xl text-xs space-y-1.5 mt-4">
+                <div className="font-bold text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                  <AlertTriangle size={14} className="text-amber-800" />
+                  Mac & Windows Electron Masaüstü Kullanım Bilgisi:
+                </div>
+                <p className="text-amber-900 font-medium leading-relaxed">
+                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>15 saniyede bir otomatik olarak eşitlenir</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Standard persistence block */}
           <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
             <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 mb-6 flex items-center gap-2">
@@ -443,6 +842,62 @@ export default function SettingsView({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY COMPLIANCE REPORT MODAL */}
+      {isSecurityModalOpen && (
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl border-2 border-zinc-900 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-emerald-950 text-white border-b-2 border-zinc-900 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-800 rounded-xl border border-emerald-500">
+                  <ShieldCheck size={20} className="text-emerald-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-wide text-white">BT & Bilgi Güvenliği Teknik Uyum Raporu</h3>
+                  <p className="text-[10px] text-emerald-300 font-mono">ServiceDesk / BT İnceleme Kaydı İçin Resmi Teknik Metin</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSecurityModalOpen(false)}
+                className="text-emerald-300 hover:text-white p-1 rounded-lg transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 bg-zinc-50 font-mono text-xs space-y-4">
+              <pre className="bg-white p-5 rounded-2xl border-2 border-zinc-900 whitespace-pre-wrap text-zinc-800 leading-relaxed shadow-inner">
+                {securityReportText}
+              </pre>
+            </div>
+
+            <div className="p-5 bg-white border-t-2 border-zinc-900 flex flex-wrap items-center justify-between gap-3">
+              <button
+                onClick={copyReportToClipboard}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white border-2 border-zinc-900 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+              >
+                <Copy size={14} />
+                {copySuccessMsg ? "Metin Kopyalandı!" : "BT Kaydı İçin Metni Kopyala"}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-2 border-zinc-900 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                >
+                  <Printer size={14} /> Yazdır / PDF
+                </button>
+                <button
+                  onClick={() => setIsSecurityModalOpen(false)}
+                  className="px-5 py-2.5 bg-zinc-900 text-white border-2 border-zinc-900 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

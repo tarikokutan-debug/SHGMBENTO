@@ -1,6 +1,26 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
+
+// Default shared data path on server/disk
+let serverConfiguredSharedPath = process.env.SHARED_DATA_PATH || path.join(process.cwd(), "shared_data", "shgm_database.json");
+
+function resolveSharedPath(customPath?: string): string {
+  if (customPath && typeof customPath === "string" && customPath.trim().length > 0) {
+    return path.isAbsolute(customPath) ? customPath : path.join(process.cwd(), customPath);
+  }
+  return serverConfiguredSharedPath;
+}
+
+function ensureDirectoryExistence(filePath: string) {
+  const dirname = path.dirname(filePath);
+  if (fs.existsSync(dirname)) {
+    return true;
+  }
+  ensureDirectoryExistence(dirname);
+  fs.mkdirSync(dirname, { recursive: true });
+}
 
 async function startServer() {
   const app = express();
@@ -13,6 +33,117 @@ async function startServer() {
   // API Route - Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // --- LOCAL & SERVER SHARED FILE SYNC ENDPOINTS ---
+
+  // Check file status (lightweight mtime check for 15s polling)
+  app.get("/api/file-sync/status", (req, res) => {
+    try {
+      const targetPath = resolveSharedPath(req.query.filePath as string);
+      if (!fs.existsSync(targetPath)) {
+        return res.json({
+          exists: false,
+          lastModified: 0,
+          size: 0,
+          filePath: targetPath
+        });
+      }
+      const stats = fs.statSync(targetPath);
+      return res.json({
+        exists: true,
+        lastModified: Math.floor(stats.mtimeMs),
+        size: stats.size,
+        filePath: targetPath
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Dosya durumu kontrol edilemedi." });
+    }
+  });
+
+  // Read dataset from shared local/server file
+  app.get("/api/file-sync/read", (req, res) => {
+    try {
+      const targetPath = resolveSharedPath(req.query.filePath as string);
+      if (!fs.existsSync(targetPath)) {
+        return res.json({
+          exists: false,
+          data: null,
+          lastModified: 0,
+          filePath: targetPath,
+          message: "Henüz ortak veri dosyası oluşturulmadı."
+        });
+      }
+      const stats = fs.statSync(targetPath);
+      const fileContent = fs.readFileSync(targetPath, "utf-8");
+      let parsed = null;
+      try {
+        parsed = JSON.parse(fileContent);
+      } catch (pErr) {
+        return res.status(400).json({ error: "Ortak dosya geçerli bir JSON formatında değil." });
+      }
+      return res.json({
+        exists: true,
+        success: true,
+        data: parsed,
+        lastModified: Math.floor(stats.mtimeMs),
+        filePath: targetPath
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Ortak dosyadan okuma yapılırken hata oluştu." });
+    }
+  });
+
+  // Write dataset to shared local/server file
+  app.post("/api/file-sync/write", (req, res) => {
+    try {
+      const { flights, stationEmails, appFees, filePath, clientTimestamp } = req.body;
+      const targetPath = resolveSharedPath(filePath);
+
+      ensureDirectoryExistence(targetPath);
+
+      const payload = {
+        version: "5.6.2",
+        lastUpdated: clientTimestamp || Date.now(),
+        updatedBy: req.ip || "Client",
+        flights: Array.isArray(flights) ? flights : [],
+        stationEmails: stationEmails || {},
+        appFees: appFees || {}
+      };
+
+      const jsonStr = JSON.stringify(payload, null, 2);
+      fs.writeFileSync(targetPath, jsonStr, "utf-8");
+
+      const stats = fs.statSync(targetPath);
+      console.log(`[FileSync] Shared data updated successfully at: ${targetPath} (${payload.flights.length} flights)`);
+
+      return res.json({
+        success: true,
+        lastModified: Math.floor(stats.mtimeMs),
+        flightCount: payload.flights.length,
+        filePath: targetPath
+      });
+    } catch (err: any) {
+      console.error("[FileSync Error] Write failed:", err);
+      return res.status(500).json({ error: err.message || "Ortak dosyaya yazılırken hata oluştu." });
+    }
+  });
+
+  // Get or update server default shared path configuration
+  app.get("/api/file-sync/config", (req, res) => {
+    res.json({
+      configuredPath: serverConfiguredSharedPath,
+      defaultPath: path.join(process.cwd(), "shared_data", "shgm_database.json")
+    });
+  });
+
+  app.post("/api/file-sync/config", (req, res) => {
+    const { customPath } = req.body;
+    if (customPath && typeof customPath === "string") {
+      serverConfiguredSharedPath = customPath.trim();
+      return res.json({ success: true, configuredPath: serverConfiguredSharedPath });
+    }
+    return res.status(400).json({ error: "Geçersiz dosya yolu" });
   });
 
   // CORS bypass API for Google Sheets GET requests (Reading)
