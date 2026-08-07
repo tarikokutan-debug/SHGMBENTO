@@ -1747,7 +1747,7 @@ export default function App() {
     <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 pb-20 relative selection:bg-red-100">
       {/* HEADER */}
       <header className="bg-white border-b-2 border-zinc-900 sticky top-0 z-40 h-20 transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-full flex items-center justify-between">
+        <div className="max-w-[1800px] mx-auto px-4 md:px-8 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-[#C8102E] border-2 border-zinc-900 p-1.5 rounded-lg shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] flex items-center justify-center">
               <Plane className="h-5 w-5 text-white transform -rotate-45" strokeWidth={3} />
@@ -1758,20 +1758,6 @@ export default function App() {
             </div>
           </div>
           <div className="hidden md:flex items-center gap-3">
-            <button
-              onClick={() => {
-                setCurrentView("SETTINGS");
-                setSettingsTab("SYNC");
-              }}
-              title="15 Saniyede Bir Otomatik Klasör Senkronizasyonu"
-              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border-2 border-zinc-900 px-3 py-1.5 rounded-xl transition cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold text-emerald-950 font-mono"
-            >
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${autoSyncEnabled ? "bg-emerald-400" : "bg-zinc-400"} opacity-75`}></span>
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
-              </span>
-              <span>15s Otomatik Senkronize</span>
-            </button>
             <div className="bg-zinc-100 p-1 rounded-xl border-2 border-zinc-900 flex">
               {[
                 { key: "OPERATIONS", label: "Operasyon Masası" },
@@ -1839,13 +1825,13 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 md:px-6 mt-8">
+      <main className="max-w-[1800px] mx-auto px-4 md:px-8 mt-6">
         {currentView === "OPERATIONS" && (
           <div className="animate-fade-in space-y-6">
-            {/* GRID CONTAINER: 1/4 Sol Panel (Girdi & Filtreler), 3/4 Sağ Panel (Başvuru Kartları) */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-              {/* SOL KOLON - 1/4 GENİŞLİK (lg:col-span-1) */}
-              <div className="lg:col-span-1 space-y-4">
+            {/* GRID CONTAINER: Sol Panel (250px-300px veya 1/5 - 1/6 genişlik), Sağ Panel (Başvuru Kartları) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* SOL KOLON - lg:col-span-3 veya xl:col-span-2.5 */}
+              <div className="lg:col-span-3 xl:col-span-3 2xl:col-span-2 space-y-4">
                 {/* 1. DEVİR MAİLİ HAZIRLA BUTONU */}
                 <button
                   onClick={() => setIsDevirModalOpen(true)}
@@ -2152,8 +2138,8 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SAĞ KOLON - 3/4 GENİŞLİK (lg:col-span-3) - BAŞVURU KARTLARI */}
-              <div className="lg:col-span-3 space-y-4">
+              {/* SAĞ KOLON - BAŞVURU KARTLARI (lg:col-span-9, xl:col-span-9, 2xl:col-span-10) */}
+              <div className="lg:col-span-9 xl:col-span-9 2xl:col-span-10 space-y-4">
                 {/* Kart Bölümü Üst Başlığı */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-white p-4 rounded-2xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
                   <div className="flex items-center gap-2">
@@ -2169,8 +2155,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BAŞVURU KARTLARI GRID */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+                {/* BAŞVURU KARTLARI GRID - 1 satırda 4-5 kart gösterme (lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-5 gap-4 w-full">
                   {unifiedGroups.length > 0 ? (
                     unifiedGroups.map((group: any, idx: number) => {
                   const isBulkGroup = group.isBulk || (group.flights && group.flights.length > 1);
