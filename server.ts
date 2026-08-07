@@ -84,9 +84,10 @@ async function startServer() {
       }
       const stats = fs.statSync(targetPath);
       const fileContent = fs.readFileSync(targetPath, "utf-8");
+      const cleaned = fileContent.trim().replace(/^\uFEFF/, "");
       let parsed = null;
       try {
-        parsed = JSON.parse(fileContent);
+        parsed = JSON.parse(cleaned);
       } catch (pErr) {
         return res.status(400).json({ error: "Ortak dosya geçerli bir JSON formatında değil." });
       }
@@ -110,17 +111,43 @@ async function startServer() {
 
       ensureDirectoryExistence(targetPath);
 
+      const incomingFlights = Array.isArray(flights) ? flights : [];
+
+      // Safety guard against overwriting existing non-empty database with empty list
+      if (fs.existsSync(targetPath)) {
+        try {
+          const existingRaw = fs.readFileSync(targetPath, "utf-8").trim().replace(/^\uFEFF/, "");
+          if (existingRaw.length > 50) {
+            const existingParsed = JSON.parse(existingRaw);
+            const existingFlights = Array.isArray(existingParsed)
+              ? existingParsed
+              : (existingParsed?.flights || []);
+
+            if (existingFlights.length > 0 && incomingFlights.length === 0) {
+              console.warn(`[FileSync Guard] Overwrite blocked for ${targetPath}: Existing file has ${existingFlights.length} flights, incoming request was empty.`);
+              return res.status(400).json({ error: "Güvenlik Engeli: Sunucudaki mevcut uçuş verileri boş bir liste ile ezilemez." });
+            }
+          }
+          // Create backup before writing
+          fs.copyFileSync(targetPath, targetPath + ".bak");
+        } catch (guardErr) {
+          console.warn("[FileSync Guard Warning]", guardErr);
+        }
+      }
+
       const payload = {
         version: "5.6.2",
         lastUpdated: clientTimestamp || Date.now(),
         updatedBy: req.ip || "Client",
-        flights: Array.isArray(flights) ? flights : [],
+        flights: incomingFlights,
         stationEmails: stationEmails || {},
         appFees: appFees || {}
       };
 
       const jsonStr = JSON.stringify(payload, null, 2);
-      fs.writeFileSync(targetPath, jsonStr, "utf-8");
+      const tmpPath = targetPath + ".tmp";
+      fs.writeFileSync(tmpPath, jsonStr, "utf-8");
+      fs.renameSync(tmpPath, targetPath);
 
       const stats = fs.statSync(targetPath);
       console.log(`[FileSync] Shared data updated successfully at: ${targetPath} (${payload.flights.length} flights)`);

@@ -63,6 +63,7 @@ import {
   formatShortAviationDate,
   formatGroupRoute,
   getSpecialStationCode,
+  parseFlightDataFromJSON,
 } from "./utils/helpers";
 // Google Sheets features removed as requested by the airline team
 
@@ -271,6 +272,7 @@ export default function App() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [lastServerModified, setLastServerModified] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isInitialReadDone, setIsInitialReadDone] = useState<boolean>(false);
   const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
 
   const showSyncToast = useCallback((msg: string) => {
@@ -287,6 +289,10 @@ export default function App() {
       const targetFees = overrideFees || appFees;
 
       if (!targetF) return;
+      if (targetF.length === 0) {
+        console.warn("Shared file push skipped: Local flight list is empty.");
+        return;
+      }
 
       try {
         setIsSyncing(true);
@@ -351,7 +357,7 @@ export default function App() {
             const statusData = await statusRes.json();
             if (statusData.exists) {
               resLastModified = statusData.lastModified;
-              if (resLastModified > lastServerModified || isManualTrigger) {
+              if (resLastModified > lastServerModified || isManualTrigger || !isInitialReadDone) {
                 const readRes = await fetch(`/api/file-sync/read?filePath=${encodeURIComponent(sharedFilePath)}`);
                 if (readRes.ok) {
                   const readData = await readRes.json();
@@ -360,7 +366,7 @@ export default function App() {
                   }
                 }
               }
-            } else if (isLoaded && flights.length > 0) {
+            } else if (isLoaded && flights.length > 0 && isInitialReadDone) {
               // File doesn't exist on server yet, write current local data
               await pushToSharedFileSync();
               return;
@@ -368,20 +374,20 @@ export default function App() {
           }
         }
 
-        if (remoteData && remoteData.flights && Array.isArray(remoteData.flights)) {
-          if (resLastModified > lastServerModified || isManualTrigger) {
-            setFlights(remoteData.flights);
-            if (remoteData.stationEmails && typeof remoteData.stationEmails === "object") {
-              setStationEmails(remoteData.stationEmails);
-            }
-            if (remoteData.appFees && typeof remoteData.appFees === "object") {
-              setAppFees(remoteData.appFees);
-            }
+        setIsInitialReadDone(true);
+        const { flights: remoteFlights, stationEmails: remoteEmails, appFees: remoteFees } = parseFlightDataFromJSON(remoteData);
+
+        if (remoteFlights && Array.isArray(remoteFlights)) {
+          if (resLastModified > lastServerModified || isManualTrigger || !isInitialReadDone) {
+            setFlights(remoteFlights);
+            if (remoteEmails) setStationEmails(remoteEmails);
+            if (remoteFees) setAppFees(remoteFees);
+
             setLastServerModified(resLastModified);
             setLastSyncTime(new Date());
-            addBackupLog("AUTO", "SUCCESS", `Ortak dosyadan ${remoteData.flights.length} uçuş senkronize edildi (15s Otomatik Kontrol).`);
+            addBackupLog("AUTO", "SUCCESS", `Ortak dosyadan ${remoteFlights.length} uçuş senkronize edildi (1 Dk Otomatik Kontrol).`);
             if (!isManualTrigger) {
-              showSyncToast("15s Otomatik Kontrol: Ortak sunucu dosyasından yeni değişiklikler alındı.");
+              showSyncToast("1 Dk Otomatik Kontrol: Ortak sunucu dosyasından yeni değişiklikler alındı.");
             } else {
               showSyncToast("Ortak dosya başarıyla senkronize edildi.");
             }
@@ -393,7 +399,7 @@ export default function App() {
         setIsSyncing(false);
       }
     },
-    [sharedFilePath, lastServerModified, flights, isLoaded, pushToSharedFileSync, addBackupLog, showSyncToast]
+    [sharedFilePath, lastServerModified, flights, isLoaded, isInitialReadDone, pushToSharedFileSync, addBackupLog, showSyncToast]
   );
 
   useEffect(() => {
@@ -412,17 +418,17 @@ export default function App() {
     }
   }, [autoSyncEnabled]);
 
-  // 15-second polling timer
+  // 1-minute (60 seconds) polling timer
   useEffect(() => {
     if (!autoSyncEnabled || !isLoaded) return;
 
     const initialTimer = setTimeout(() => {
       checkAndSyncSharedFile(false);
-    }, 2000);
+    }, 1500);
 
     const syncInterval = setInterval(() => {
       checkAndSyncSharedFile(false);
-    }, 15000);
+    }, 60000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -544,7 +550,14 @@ export default function App() {
   const manualDownload = useCallback(async () => {
     try {
       const filename = `shgm_takip_yedek_${new Date().toISOString().slice(0, 10)}.json`;
-      const jsonContent = JSON.stringify(flights, null, 2);
+      const exportData = {
+        version: "5.6.2",
+        exportDate: new Date().toISOString(),
+        flights,
+        stationEmails,
+        appFees,
+      };
+      const jsonContent = JSON.stringify(exportData, null, 2);
       const blob = new Blob([jsonContent], { type: "application/json" });
 
       if ("showSaveFilePicker" in window) {
@@ -598,29 +611,35 @@ export default function App() {
     } catch (err: any) {
       addBackupLog("MANUAL", "ERROR", `Yedek indirilirken hata oluştu: ${err.message || err}`);
     }
-  }, [flights, lastFileHandle, addBackupLog]);
+  }, [flights, stationEmails, appFees, lastFileHandle, addBackupLog]);
 
   const importFromJson = useCallback((file: File) => {
     const r = new FileReader();
     r.onload = (e) => {
       try {
-        const d = JSON.parse(e.target?.result as string);
-        if (Array.isArray(d)) {
-          if (window.confirm("Mevcut yerel veriler silinip yuklenen dosya basilacak. Devam?")) {
-            setFlights(d);
-            addBackupLog("IMPORT", "SUCCESS", `Dosyadan başarıyla veri yüklendi: ${file.name} (${d.length} uçuş)`);
+        const raw = e.target?.result as string;
+        const { flights: importedFlights, stationEmails: importedEmails, appFees: importedFees } = parseFlightDataFromJSON(raw);
+
+        if (importedFlights && Array.isArray(importedFlights)) {
+          if (window.confirm(`Mevcut yerel veriler silinip yüklenen dosyadan ${importedFlights.length} uçuş kaydı aktarılacak. Devam etmek istiyor musunuz?`)) {
+            setFlights(importedFlights);
+            if (importedEmails) setStationEmails(importedEmails);
+            if (importedFees) setAppFees(importedFees);
+
+            addBackupLog("IMPORT", "SUCCESS", `Dosyadan başarıyla veri yüklendi: ${file.name} (${importedFlights.length} uçuş)`);
+            alert(`Veriler başarıyla aktarıldı! (${importedFlights.length} uçuş)`);
           }
         } else {
-          alert("Gecersiz dosya formati.");
+          alert("Geçersiz dosya formatı. Lütfen geçerli bir SHGM JSON veri veya yedek dosyası seçin.");
           addBackupLog("IMPORT", "ERROR", `Yükleme hatası: Geçersiz dosya formatı (${file.name})`);
         }
       } catch (err: any) {
-        alert("Dosya okunamadi.");
+        alert("Dosya okunamadı veya JSON biçimi geçersiz.");
         addBackupLog("IMPORT", "ERROR", `Yükleme hatası: ${err.message || err}`);
       }
     };
-    r.readAsText(file);
-  }, [addBackupLog]);
+    r.readAsText(file, "utf-8");
+  }, [addBackupLog, setFlights, setStationEmails, setAppFees]);
 
   const triggerSafeMailto = (mailtoUrl: string) => {
     const a = document.createElement("a");
@@ -2112,7 +2131,8 @@ export default function App() {
                       type="date"
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700"
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                      className="w-full px-2.5 py-1.5 bg-white border-2 border-zinc-900 rounded-xl text-xs font-bold uppercase tracking-wider focus:outline-none text-zinc-700 cursor-pointer"
                     />
                   </div>
 

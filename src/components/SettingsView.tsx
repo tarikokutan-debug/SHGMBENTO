@@ -527,18 +527,18 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                     <span className={`relative inline-flex rounded-full h-3 w-3 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
                   </span>
                   <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
-                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (15 Saniye)
+                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (1 Dakika)
                   </h3>
                 </div>
                 <p className="text-xs text-zinc-500 font-medium">
-                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 15 saniyede bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
+                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 1 dakikada bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
                 </p>
               </div>
 
               {/* Toggle Switch */}
               <div className="flex items-center gap-3 bg-zinc-50 border-2 border-zinc-900 p-2 rounded-2xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-800 font-mono">
-                  15s Otomatik
+                  1 Dk Otomatik
                 </span>
                 <button
                   type="button"
@@ -618,7 +618,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                   Mac & Windows Electron Masaüstü Kullanım Bilgisi:
                 </div>
                 <p className="text-amber-900 font-medium leading-relaxed">
-                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>15 saniyede bir otomatik olarak eşitlenir</strong>.
+                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>1 dakikada bir otomatik olarak eşitlenir</strong>.
                 </p>
               </div>
             </div>
@@ -629,7 +629,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
       {/* 4. DATA TAB */}
       {settingsTab === "DATA" && (
         <div className="space-y-8 animate-fade-in max-w-4xl">
-          {/* Ortak Sunucu Klasörü ve Electron 15s Otomatik Senkronizasyon Bloğu */}
+          {/* Ortak Sunucu Klasörü ve Electron 1 Dk Otomatik Senkronizasyon Bloğu */}
           <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] relative overflow-hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b-2 border-zinc-900">
               <div>
@@ -639,18 +639,18 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                     <span className={`relative inline-flex rounded-full h-3 w-3 ${autoSyncEnabled ? "bg-emerald-500" : "bg-zinc-400"}`}></span>
                   </span>
                   <h3 className="text-sm font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
-                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (15 Saniye)
+                    <Database size={18} className="text-zinc-900" /> Ortak Klasör & Electron Senkronizasyonu (1 Dakika)
                   </h3>
                 </div>
                 <p className="text-xs text-zinc-500 font-medium">
-                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 15 saniyede bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
+                  Sunucudaki veya ağ sürücüsündeki tek bir veri dosyasını 1 dakikada bir kontrol eder ve değişiklikleri tüm kullanıcılara otomatik yansıtır.
                 </p>
               </div>
 
               {/* Toggle Switch */}
               <div className="flex items-center gap-3 bg-zinc-50 border-2 border-zinc-900 p-2 rounded-2xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                 <span className="text-xs font-bold uppercase tracking-wider text-zinc-800 font-mono">
-                  15s Otomatik
+                  1 Dk Otomatik
                 </span>
                 <button
                   type="button"
@@ -730,7 +730,7 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
                   Mac & Windows Electron Masaüstü Kullanım Bilgisi:
                 </div>
                 <p className="text-amber-900 font-medium leading-relaxed">
-                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>15 saniyede bir otomatik olarak eşitlenir</strong>.
+                  Ekipteki tüm kullanıcılar uygulamayı Electron masaüstü uygulaması veya web tarayıcı üzerinden açtığında, sunucudaki bu ortak dosyaya yapılan her ekleme, AFTN no girişi ve onay durumu <strong>1 dakikada bir otomatik olarak eşitlenir</strong>.
                 </p>
               </div>
             </div>

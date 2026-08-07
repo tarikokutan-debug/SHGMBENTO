@@ -235,3 +235,12 @@ body {
 .theme-apple .text-zinc-550 {
   color: #86868b !important;
 }
+
+/* ==========================================
+   ELECTRON DESKTOP APP INTERACTIVITY FIX
+   ========================================== */
+input, select, textarea, button, a, [role="button"], label, form, table, td, th {
+  -webkit-app-region: no-drag !important;
+  user-select: auto;
+}
+

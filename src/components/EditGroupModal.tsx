@@ -20,10 +20,10 @@ export default function EditGroupModal({
 }: EditGroupModalProps) {
   if (!isOpen) return null;
 
-  const handleEditFlightChange = (id: string | number, field: string, value: any) => {
+  const handleEditFlightChange = (targetIdx: number, field: string, value: any) => {
     setEditGroupData((prev: any) => ({
       ...prev,
-      flights: prev.flights.map((f: any) => (f.id === id ? { ...f, [field]: value } : f)),
+      flights: (prev.flights || []).map((f: any, idx: number) => (idx === targetIdx ? { ...f, [field]: value } : f)),
     }));
   };
 
@@ -64,18 +64,20 @@ export default function EditGroupModal({
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Başvuru Tarihi</label>
                 <input
                   type="datetime-local"
-                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-medium font-mono"
+                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 font-medium font-mono cursor-pointer"
                   value={editGroupData.appMadeDate || ""}
                   onChange={e => setEditGroupData({ ...editGroupData, appMadeDate: e.target.value })}
+                  onClick={e => (e.target as HTMLInputElement).showPicker?.()}
                 />
               </div>
               <div className="w-full">
                 <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Onay Geliş Tarihi</label>
                 <input
                   type="datetime-local"
-                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-medium font-mono"
+                  className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 font-medium font-mono cursor-pointer"
                   value={editGroupData.approvedDate || ""}
                   onChange={e => setEditGroupData({ ...editGroupData, approvedDate: e.target.value })}
+                  onClick={e => (e.target as HTMLInputElement).showPicker?.()}
                 />
               </div>
             </div>
@@ -94,63 +96,63 @@ export default function EditGroupModal({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {editGroupData.flights.map((f: any) => (
-                    <tr key={f.id}>
+                  {(editGroupData.flights || []).map((f: any, idx: number) => (
+                    <tr key={f.id ? `flight-${f.id}-${idx}` : `row-${idx}`}>
                       <td className="p-2 pl-4">
                         <input
-                          className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs"
+                          className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs font-bold"
                           value={f.al || ""}
-                          onChange={e => handleEditFlightChange(f.id, "al", e.target.value)}
+                          onChange={e => handleEditFlightChange(idx, "al", e.target.value)}
                         />
                       </td>
                       <td className="p-2">
                         <input
-                          className="w-16 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs"
+                          className="w-16 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs font-bold"
                           value={f.flNo || ""}
-                          onChange={e => handleEditFlightChange(f.id, "flNo", e.target.value)}
+                          onChange={e => handleEditFlightChange(idx, "flNo", e.target.value)}
                         />
                       </td>
                       <td className="p-2">
                         <input
-                          className="w-28 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                          className="w-28 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs font-medium"
                           value={f.date || ""}
-                          onChange={e => handleEditFlightChange(f.id, "date", e.target.value)}
+                          onChange={e => handleEditFlightChange(idx, "date", e.target.value)}
                         />
                       </td>
                       <td className="p-2">
                         <div className="flex gap-1">
                           <input
-                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs"
+                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs font-bold"
                             value={f.orig || ""}
-                            onChange={e => handleEditFlightChange(f.id, "orig", e.target.value)}
+                            onChange={e => handleEditFlightChange(idx, "orig", e.target.value)}
                           />
                           <input
-                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs"
+                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded uppercase outline-none text-xs font-bold"
                             value={f.dest || ""}
-                            onChange={e => handleEditFlightChange(f.id, "dest", e.target.value)}
+                            onChange={e => handleEditFlightChange(idx, "dest", e.target.value)}
                           />
                         </div>
                       </td>
                       <td className="p-2">
                         <div className="flex gap-1">
                           <input
-                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs font-medium"
                             value={f.std || ""}
-                            onChange={e => handleEditFlightChange(f.id, "std", e.target.value)}
+                            onChange={e => handleEditFlightChange(idx, "std", e.target.value)}
                           />
                           <input
-                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                            className="w-12 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs font-medium"
                             value={f.sta || ""}
-                            onChange={e => handleEditFlightChange(f.id, "sta", e.target.value)}
+                            onChange={e => handleEditFlightChange(idx, "sta", e.target.value)}
                           />
                         </div>
                       </td>
                       <td className="p-2">
                         <input
-                          className="w-24 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                          className="w-24 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs font-medium"
                           placeholder="Yok"
                           value={f.awbNo || ""}
-                          onChange={e => handleEditFlightChange(f.id, "awbNo", e.target.value)}
+                          onChange={e => handleEditFlightChange(idx, "awbNo", e.target.value)}
                         />
                       </td>
                       <td className="p-2 text-center">
@@ -158,15 +160,15 @@ export default function EditGroupModal({
                           type="checkbox"
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                           checked={f.isDg || false}
-                          onChange={e => handleEditFlightChange(f.id, "isDg", e.target.checked)}
+                          onChange={e => handleEditFlightChange(idx, "isDg", e.target.checked)}
                         />
                       </td>
                       <td className="p-2">
                         <input
-                          className="w-32 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs"
+                          className="w-32 p-1.5 bg-gray-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-gray-300 rounded outline-none text-xs font-medium"
                           placeholder="Not ekle..."
                           value={f.notes || ""}
-                          onChange={e => handleEditFlightChange(f.id, "notes", e.target.value)}
+                          onChange={e => handleEditFlightChange(idx, "notes", e.target.value)}
                         />
                       </td>
                     </tr>

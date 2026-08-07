@@ -45,7 +45,8 @@ async function createWindow() {
       preload: path.join(__dirname, "electron-preload.js"),
       webSecurity: false, // Allows local file loading & network UNC path access in desktop
     },
-    titleBarStyle: "hiddenInset",
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+    frame: true,
     autoHideMenuBar: false,
   });
 
@@ -86,6 +87,19 @@ async function createWindow() {
         },
         { type: "separator" },
         { label: "Çıkış", role: "quit" },
+      ],
+    },
+    {
+      label: "Düzenle",
+      submenu: [
+        { label: "Geri Al", role: "undo" },
+        { label: "Yinele", role: "redo" },
+        { type: "separator" },
+        { label: "Kes", role: "cut" },
+        { label: "Kopyala", role: "copy" },
+        { label: "Yapıştır", role: "paste" },
+        { label: "Tümünü Seç", role: "selectAll" },
+        { label: "Sil", role: "delete" },
       ],
     },
     {
@@ -137,8 +151,9 @@ ipcMain.handle("read-local-json", async (event, filePath) => {
   try {
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, "utf-8");
+      const cleaned = content.trim().replace(/^\uFEFF/, "");
       const stat = fs.statSync(filePath);
-      return { success: true, data: JSON.parse(content), lastModified: stat.mtimeMs };
+      return { success: true, data: JSON.parse(cleaned), lastModified: stat.mtimeMs };
     }
     return { success: false, error: "Dosya bulunamadı" };
   } catch (err) {
@@ -152,7 +167,32 @@ ipcMain.handle("write-local-json", async (event, filePath, data) => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+
+    // Safety guard against overwriting a populated file with empty data
+    if (fs.existsSync(filePath)) {
+      try {
+        const existingRaw = fs.readFileSync(filePath, "utf-8").trim().replace(/^\uFEFF/, "");
+        if (existingRaw.length > 50) {
+          const existingData = JSON.parse(existingRaw);
+          const existingFlights = Array.isArray(existingData) ? existingData : (existingData?.flights || []);
+          const incomingFlights = Array.isArray(data) ? data : (data?.flights || []);
+
+          if (existingFlights.length > 0 && incomingFlights.length === 0) {
+            console.warn(`[IPC Safety Guard] Blocked overwrite of ${filePath}: Existing file has ${existingFlights.length} flights, incoming data is empty.`);
+            return { success: false, error: "Güvenlik Engeli: Ortak dosyadaki mevcut uçuş verileri boş liste ile ezilemez." };
+          }
+        }
+        // Automatic backup before overwrite
+        fs.copyFileSync(filePath, filePath + ".bak");
+      } catch (guardErr) {
+        console.warn("[IPC Safety Guard Warning]", guardErr);
+      }
+    }
+
+    const tmpPath = filePath + ".tmp";
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
+    fs.renameSync(tmpPath, filePath);
+
     const stat = fs.statSync(filePath);
     return { success: true, lastModified: stat.mtimeMs };
   } catch (err) {

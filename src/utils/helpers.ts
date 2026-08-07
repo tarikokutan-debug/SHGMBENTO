@@ -339,3 +339,70 @@ export const getSpecialStationCode = (flights: any[]): string | null => {
   }
   return null;
 };
+
+export const parseFlightDataFromJSON = (
+  input: any
+): { flights: any[] | null; stationEmails: any | null; appFees: any | null } => {
+  if (!input) return { flights: null, stationEmails: null, appFees: null };
+
+  let data = input;
+  if (typeof data === "string") {
+    try {
+      const cleaned = data.trim().replace(/^\uFEFF/, "");
+      data = JSON.parse(cleaned);
+      if (typeof data === "string") {
+        data = JSON.parse(data);
+      }
+    } catch {
+      return { flights: null, stationEmails: null, appFees: null };
+    }
+  }
+
+  let flights: any[] | null = null;
+  let stationEmails: any | null = null;
+  let appFees: any | null = null;
+
+  if (Array.isArray(data)) {
+    flights = data;
+  } else if (data && typeof data === "object") {
+    if (data.stationEmails && typeof data.stationEmails === "object") stationEmails = data.stationEmails;
+    if (data.appFees && typeof data.appFees === "object") appFees = data.appFees;
+
+    if (Array.isArray(data.flights)) {
+      flights = data.flights;
+    } else if (Array.isArray(data.data)) {
+      flights = data.data;
+    } else if (data.data && typeof data.data === "object") {
+      if (Array.isArray(data.data.flights)) flights = data.data.flights;
+      if (data.data.stationEmails) stationEmails = data.data.stationEmails;
+      if (data.data.appFees) appFees = data.data.appFees;
+    } else if (Array.isArray(data.items)) {
+      flights = data.items;
+    } else if (Array.isArray(data.records)) {
+      flights = data.records;
+    } else if (Array.isArray(data.shgm_takip_flights_v2)) {
+      flights = data.shgm_takip_flights_v2;
+    } else if (typeof data.shgm_takip_flights_v2 === "string") {
+      try {
+        const parsed = JSON.parse(data.shgm_takip_flights_v2);
+        if (Array.isArray(parsed)) flights = parsed;
+      } catch {}
+    } else if (data.payload && typeof data.payload === "object") {
+      if (Array.isArray(data.payload.flights)) flights = data.payload.flights;
+      else if (Array.isArray(data.payload)) flights = data.payload;
+      if (data.payload.stationEmails) stationEmails = data.payload.stationEmails;
+      if (data.payload.appFees) appFees = data.payload.appFees;
+    } else {
+      const vals = Object.values(data);
+      if (vals.length > 0 && vals.every((v) => v && typeof v === "object" && !Array.isArray(v))) {
+        const sample = vals[0] as any;
+        if (sample && (sample.id || sample.al || sample.flNo || sample.dest || sample.date || sample.status)) {
+          flights = vals;
+        }
+      }
+    }
+  }
+
+  return { flights, stationEmails, appFees };
+};
+
