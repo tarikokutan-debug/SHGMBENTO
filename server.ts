@@ -70,10 +70,11 @@ async function startServer() {
   });
 
   // Read dataset from shared local/server file
-  app.get("/api/file-sync/read", (req, res) => {
+  app.get("/api/file-sync/read", async (req, res) => {
     try {
       const targetPath = resolveSharedPath(req.query.filePath as string);
-      if (!fs.existsSync(targetPath)) {
+      const exists = await fs.promises.access(targetPath).then(() => true).catch(() => false);
+      if (!exists) {
         return res.json({
           exists: false,
           data: null,
@@ -82,8 +83,8 @@ async function startServer() {
           message: "Henüz ortak veri dosyası oluşturulmadı."
         });
       }
-      const stats = fs.statSync(targetPath);
-      const fileContent = fs.readFileSync(targetPath, "utf-8");
+      const stats = await fs.promises.stat(targetPath);
+      const fileContent = await fs.promises.readFile(targetPath, "utf-8");
       const cleaned = fileContent.trim().replace(/^\uFEFF/, "");
       let parsed = null;
       try {
@@ -104,7 +105,7 @@ async function startServer() {
   });
 
   // Write dataset to shared local/server file
-  app.post("/api/file-sync/write", (req, res) => {
+  app.post("/api/file-sync/write", async (req, res) => {
     try {
       const { flights, stationEmails, appFees, filePath, clientTimestamp } = req.body;
       const targetPath = resolveSharedPath(filePath);
@@ -114,9 +115,10 @@ async function startServer() {
       const incomingFlights = Array.isArray(flights) ? flights : [];
 
       // Safety guard against overwriting existing non-empty database with empty list
-      if (fs.existsSync(targetPath)) {
+      const exists = await fs.promises.access(targetPath).then(() => true).catch(() => false);
+      if (exists) {
         try {
-          const existingRaw = fs.readFileSync(targetPath, "utf-8").trim().replace(/^\uFEFF/, "");
+          const existingRaw = (await fs.promises.readFile(targetPath, "utf-8")).trim().replace(/^\uFEFF/, "");
           if (existingRaw.length > 50) {
             const existingParsed = JSON.parse(existingRaw);
             const existingFlights = Array.isArray(existingParsed)
@@ -129,7 +131,7 @@ async function startServer() {
             }
           }
           // Create backup before writing
-          fs.copyFileSync(targetPath, targetPath + ".bak");
+          await fs.promises.copyFile(targetPath, targetPath + ".bak");
         } catch (guardErr) {
           console.warn("[FileSync Guard Warning]", guardErr);
         }
@@ -146,10 +148,10 @@ async function startServer() {
 
       const jsonStr = JSON.stringify(payload, null, 2);
       const tmpPath = targetPath + ".tmp";
-      fs.writeFileSync(tmpPath, jsonStr, "utf-8");
-      fs.renameSync(tmpPath, targetPath);
+      await fs.promises.writeFile(tmpPath, jsonStr, "utf-8");
+      await fs.promises.rename(tmpPath, targetPath);
 
-      const stats = fs.statSync(targetPath);
+      const stats = await fs.promises.stat(targetPath);
       console.log(`[FileSync] Shared data updated successfully at: ${targetPath} (${payload.flights.length} flights)`);
 
       return res.json({

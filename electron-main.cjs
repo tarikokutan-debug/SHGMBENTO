@@ -147,12 +147,15 @@ ipcMain.handle("select-shared-file", async () => {
   return null;
 });
 
+const fsPromises = fs.promises;
+
 ipcMain.handle("read-local-json", async (event, filePath) => {
   try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, "utf-8");
+    const exists = await fsPromises.access(filePath).then(() => true).catch(() => false);
+    if (exists) {
+      const content = await fsPromises.readFile(filePath, "utf-8");
       const cleaned = content.trim().replace(/^\uFEFF/, "");
-      const stat = fs.statSync(filePath);
+      const stat = await fsPromises.stat(filePath);
       return { success: true, data: JSON.parse(cleaned), lastModified: stat.mtimeMs };
     }
     return { success: false, error: "Dosya bulunamadı" };
@@ -164,14 +167,14 @@ ipcMain.handle("read-local-json", async (event, filePath) => {
 ipcMain.handle("write-local-json", async (event, filePath, data) => {
   try {
     const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    await fsPromises.mkdir(dir, { recursive: true });
+
+    const exists = await fsPromises.access(filePath).then(() => true).catch(() => false);
 
     // Safety guard against overwriting a populated file with empty data
-    if (fs.existsSync(filePath)) {
+    if (exists) {
       try {
-        const existingRaw = fs.readFileSync(filePath, "utf-8").trim().replace(/^\uFEFF/, "");
+        const existingRaw = (await fsPromises.readFile(filePath, "utf-8")).trim().replace(/^\uFEFF/, "");
         if (existingRaw.length > 50) {
           const existingData = JSON.parse(existingRaw);
           const existingFlights = Array.isArray(existingData) ? existingData : (existingData?.flights || []);
@@ -183,17 +186,17 @@ ipcMain.handle("write-local-json", async (event, filePath, data) => {
           }
         }
         // Automatic backup before overwrite
-        fs.copyFileSync(filePath, filePath + ".bak");
+        await fsPromises.copyFile(filePath, filePath + ".bak");
       } catch (guardErr) {
         console.warn("[IPC Safety Guard Warning]", guardErr);
       }
     }
 
     const tmpPath = filePath + ".tmp";
-    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), "utf-8");
-    fs.renameSync(tmpPath, filePath);
+    await fsPromises.writeFile(tmpPath, JSON.stringify(data, null, 2), "utf-8");
+    await fsPromises.rename(tmpPath, filePath);
 
-    const stat = fs.statSync(filePath);
+    const stat = await fsPromises.stat(filePath);
     return { success: true, lastModified: stat.mtimeMs };
   } catch (err) {
     return { success: false, error: err.message };

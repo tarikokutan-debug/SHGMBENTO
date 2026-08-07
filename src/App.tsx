@@ -282,20 +282,21 @@ export default function App() {
     }, 4500);
   }, []);
 
+  const isSyncingInFlightRef = useRef(false);
+
   const pushToSharedFileSync = useCallback(
-    async (overrideFlights?: any[], overrideEmails?: any, overrideFees?: any) => {
+    async (overrideFlights?: any[], overrideEmails?: any, overrideFees?: any, isManual = false) => {
       const targetF = overrideFlights || flights;
       const targetE = overrideEmails || stationEmails;
       const targetFees = overrideFees || appFees;
 
-      if (!targetF) return;
-      if (targetF.length === 0) {
-        console.warn("Shared file push skipped: Local flight list is empty.");
-        return;
-      }
+      if (!targetF || targetF.length === 0) return;
+      if (isSyncingInFlightRef.current) return;
 
       try {
-        setIsSyncing(true);
+        isSyncingInFlightRef.current = true;
+        if (isManual) setIsSyncing(true);
+
         if (typeof window !== "undefined" && window.electronAPI?.isElectron) {
           const payload = {
             version: "5.6.2",
@@ -332,7 +333,8 @@ export default function App() {
       } catch (err) {
         console.warn("Shared file auto-push skipped:", err);
       } finally {
-        setIsSyncing(false);
+        isSyncingInFlightRef.current = false;
+        if (isManual) setIsSyncing(false);
       }
     },
     [flights, stationEmails, appFees, sharedFilePath]
@@ -340,8 +342,11 @@ export default function App() {
 
   const checkAndSyncSharedFile = useCallback(
     async (isManualTrigger = false) => {
+      if (isSyncingInFlightRef.current) return;
       try {
-        setIsSyncing(true);
+        isSyncingInFlightRef.current = true;
+        if (isManualTrigger) setIsSyncing(true);
+
         let resLastModified = 0;
         let remoteData: any = null;
 
@@ -368,7 +373,8 @@ export default function App() {
               }
             } else if (isLoaded && flights.length > 0 && isInitialReadDone) {
               // File doesn't exist on server yet, write current local data
-              await pushToSharedFileSync();
+              isSyncingInFlightRef.current = false;
+              await pushToSharedFileSync(undefined, undefined, undefined, false);
               return;
             }
           }
@@ -377,7 +383,7 @@ export default function App() {
         setIsInitialReadDone(true);
         const { flights: remoteFlights, stationEmails: remoteEmails, appFees: remoteFees } = parseFlightDataFromJSON(remoteData);
 
-        if (remoteFlights && Array.isArray(remoteFlights)) {
+        if (remoteFlights && Array.isArray(remoteFlights) && remoteFlights.length > 0) {
           if (resLastModified > lastServerModified || isManualTrigger || !isInitialReadDone) {
             setFlights(remoteFlights);
             if (remoteEmails) setStationEmails(remoteEmails);
@@ -396,7 +402,8 @@ export default function App() {
       } catch (err: any) {
         console.warn("Shared file sync check warning:", err?.message || err);
       } finally {
-        setIsSyncing(false);
+        isSyncingInFlightRef.current = false;
+        if (isManualTrigger) setIsSyncing(false);
       }
     },
     [sharedFilePath, lastServerModified, flights, isLoaded, isInitialReadDone, pushToSharedFileSync, addBackupLog, showSyncToast]
@@ -514,10 +521,10 @@ export default function App() {
       localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(stationEmails));
       localStorage.setItem(FEES_STORAGE_KEY, JSON.stringify(appFees));
 
-      // Auto write to shared file
+      // Auto write to shared file (3.5s debounce to ensure smooth typing without network I/O lag)
       const timer = setTimeout(() => {
-        pushToSharedFileSync();
-      }, 500);
+        pushToSharedFileSync(undefined, undefined, undefined, false);
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [flights, stationEmails, appFees, isLoaded, pushToSharedFileSync]);
@@ -2155,8 +2162,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* BAŞVURU KARTLARI GRID - 1 satırda 4-5 kart gösterme (lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[1900px]:grid-cols-5 gap-4 w-full">
+                {/* BAŞVURU KARTLARI GRID - Standart 5 Kart Gösterimi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 gap-3.5 w-full">
                   {unifiedGroups.length > 0 ? (
                     unifiedGroups.map((group: any, idx: number) => {
                   const isBulkGroup = group.isBulk || (group.flights && group.flights.length > 1);
