@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import os from "os";
 import { createServer as createViteServer } from "vite";
 
 // Default shared data path on server/disk
@@ -172,6 +173,174 @@ async function startServer() {
       configuredPath: serverConfiguredSharedPath,
       defaultPath: path.join(process.cwd(), "shared_data", "shgm_database.json")
     });
+  });
+
+  // Get System User & OS Computer Owner Info automatically
+  app.get("/api/system/user-info", (req, res) => {
+    try {
+      let rawUser = "";
+      try {
+        const uInfo = os.userInfo();
+        rawUser = uInfo?.username || "";
+      } catch {}
+
+      if (!rawUser) {
+        rawUser = process.env.USERNAME || process.env.USER || process.env.LOGNAME || "Operator";
+      }
+
+      const hostname = os.hostname ? os.hostname() : "PC";
+
+      let formattedName = rawUser;
+      if (rawUser.includes(".")) {
+        formattedName = rawUser
+          .split(".")
+          .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+          .join(" ");
+      } else if (rawUser.length > 2 && !rawUser.startsWith("user")) {
+        formattedName = rawUser.charAt(0).toUpperCase() + rawUser.slice(1);
+      }
+
+      return res.json({
+        success: true,
+        username: rawUser,
+        displayName: formattedName,
+        hostname: hostname,
+        platform: os.platform(),
+      });
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        username: "Operator",
+        displayName: "Bilgisayar Sahibi",
+        hostname: "PC",
+        platform: "unknown"
+      });
+    }
+  });
+
+  // --- MULTI-USER COLLABORATION & AUDIT LOG API ---
+
+  // Heartbeat endpoint to track active users
+  app.post("/api/presence/heartbeat", async (req, res) => {
+    try {
+      const { user, clientAppPath } = req.body;
+      if (!user || !user.id) return res.status(400).json({ error: "User info required" });
+
+      const basePath = resolveSharedPath(clientAppPath);
+      const activeUsersFile = path.join(path.dirname(basePath), "shgm_active_users.json");
+
+      let activeUsersMap: Record<string, any> = {};
+      const exists = await fs.promises.access(activeUsersFile).then(() => true).catch(() => false);
+      if (exists) {
+        try {
+          const raw = await fs.promises.readFile(activeUsersFile, "utf-8");
+          activeUsersMap = JSON.parse(raw) || {};
+        } catch { activeUsersMap = {}; }
+      }
+
+      const now = Date.now();
+      activeUsersMap[user.id] = {
+        id: user.id,
+        name: user.name || "Bilinmeyen Kullanıcı",
+        role: user.role || "Operatör",
+        hostname: user.hostname || "Web / PC",
+        ip: req.ip || req.socket.remoteAddress || "127.0.0.1",
+        lastSeen: now,
+        currentView: user.currentView || "OPERATIONS"
+      };
+
+      // Clean up users inactive for > 2 minutes (120,000 ms)
+      Object.keys(activeUsersMap).forEach(uid => {
+        if (now - activeUsersMap[uid].lastSeen > 120000) {
+          delete activeUsersMap[uid];
+        }
+      });
+
+      const tmpFile = activeUsersFile + ".tmp";
+      await fs.promises.writeFile(tmpFile, JSON.stringify(activeUsersMap, null, 2), "utf-8");
+      await fs.promises.rename(tmpFile, activeUsersFile);
+
+      return res.json({ success: true, activeUsers: Object.values(activeUsersMap) });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get active users list
+  app.get("/api/presence/active-users", async (req, res) => {
+    try {
+      const basePath = resolveSharedPath(req.query.filePath as string);
+      const activeUsersFile = path.join(path.dirname(basePath), "shgm_active_users.json");
+      const exists = await fs.promises.access(activeUsersFile).then(() => true).catch(() => false);
+      if (!exists) return res.json({ activeUsers: [] });
+
+      const raw = await fs.promises.readFile(activeUsersFile, "utf-8");
+      const activeUsersMap = JSON.parse(raw) || {};
+      const now = Date.now();
+
+      const activeList = Object.values(activeUsersMap).filter(
+        (u: any) => now - u.lastSeen < 120000
+      );
+
+      return res.json({ activeUsers: activeList });
+    } catch (err: any) {
+      return res.json({ activeUsers: [] });
+    }
+  });
+
+  // Append or fetch Audit Activity Logs
+  app.get("/api/audit/logs", async (req, res) => {
+    try {
+      const basePath = resolveSharedPath(req.query.filePath as string);
+      const auditFile = path.join(path.dirname(basePath), "shgm_activity_logs.json");
+      const exists = await fs.promises.access(auditFile).then(() => true).catch(() => false);
+      if (!exists) return res.json({ logs: [] });
+
+      const raw = await fs.promises.readFile(auditFile, "utf-8");
+      const logs = JSON.parse(raw) || [];
+      return res.json({ logs: logs.slice(-200).reverse() }); // Return last 200 logs
+    } catch (err: any) {
+      return res.json({ logs: [] });
+    }
+  });
+
+  app.post("/api/audit/add", async (req, res) => {
+    try {
+      const { user, action, details, flightRef, filePath } = req.body;
+      const basePath = resolveSharedPath(filePath);
+      const auditFile = path.join(path.dirname(basePath), "shgm_activity_logs.json");
+
+      let logs: any[] = [];
+      const exists = await fs.promises.access(auditFile).then(() => true).catch(() => false);
+      if (exists) {
+        try {
+          const raw = await fs.promises.readFile(auditFile, "utf-8");
+          logs = JSON.parse(raw) || [];
+        } catch { logs = []; }
+      }
+
+      const newLog = {
+        id: "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+        timestamp: new Date().toISOString(),
+        userName: user?.name || "Bilinmeyen Kullanıcı",
+        userId: user?.id || "anon",
+        action: action, // e.g. "FLIGHT_ADD", "AFTN_ENTERED", "STATUS_CHANGE", "FLIGHT_DELETE"
+        details: details || "",
+        flightRef: flightRef || "",
+        hostname: user?.hostname || "PC"
+      };
+
+      logs.push(newLog);
+      if (logs.length > 5000) logs = logs.slice(-5000); // keep max 5000 logs
+
+      const tmpFile = auditFile + ".tmp";
+      await fs.promises.writeFile(tmpFile, JSON.stringify(logs, null, 2), "utf-8");
+      await fs.promises.rename(tmpFile, auditFile);
+
+      return res.json({ success: true, log: newLog });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   app.post("/api/file-sync/config", (req, res) => {

@@ -203,6 +203,32 @@ ipcMain.handle("write-local-json", async (event, filePath, data) => {
   }
 });
 
+ipcMain.handle("get-system-user-info", async () => {
+  const os = require("os");
+  let rawUser = "";
+  try {
+    const uInfo = os.userInfo();
+    rawUser = uInfo ? uInfo.username : "";
+  } catch {}
+  if (!rawUser) {
+    rawUser = process.env.USERNAME || process.env.USER || process.env.LOGNAME || "Operator";
+  }
+  const hostname = os.hostname() || "PC";
+  let formattedName = rawUser;
+  if (rawUser.includes(".")) {
+    formattedName = rawUser.split(".").map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+  } else if (rawUser.length > 2) {
+    formattedName = rawUser.charAt(0).toUpperCase() + rawUser.slice(1);
+  }
+  return {
+    success: true,
+    username: rawUser,
+    displayName: formattedName,
+    hostname: hostname,
+    platform: os.platform()
+  };
+});
+
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {

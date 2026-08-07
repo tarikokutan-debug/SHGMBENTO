@@ -29,6 +29,39 @@ export interface Flight {
   isBulk?: boolean;
   timestamps: FlightTimestamp;
   notes?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  role: string;
+  station: string;
+  hostname: string;
+}
+
+export interface ActiveUser {
+  id: string;
+  name: string;
+  role: string;
+  hostname: string;
+  ip: string;
+  lastSeen: number;
+  currentView: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userName: string;
+  userId: string;
+  action: string;
+  details: string;
+  flightRef?: string;
+  hostname?: string;
 }
 
 export interface AppFeesYil {

@@ -23,12 +23,19 @@ import {
   FileCheck,
   Printer,
   Copy,
-  FileText
+  FileText,
+  Users,
+  UserCheck,
+  Activity,
+  User,
+  RefreshCw,
+  Shield
 } from "lucide-react";
+import { UserProfile, ActiveUser, AuditLogEntry } from "../types";
 
 interface SettingsViewProps {
-  settingsTab: "SYNC" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA";
-  setSettingsTab: (tab: "SYNC" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA") => void;
+  settingsTab: "SYNC" | "USERS" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA";
+  setSettingsTab: (tab: "SYNC" | "USERS" | "SECURITY" | "EMAILS" | "FEES" | "THEMES" | "DATA") => void;
   stationEmails: any;
   setStationEmails: React.Dispatch<React.SetStateAction<any>>;
   appFees: any;
@@ -73,6 +80,13 @@ interface SettingsViewProps {
   isSyncing: boolean;
   checkAndSyncSharedFile: (isManual?: boolean) => void;
   pushToSharedFileSync: () => void;
+
+  // User Tracking & Audit props
+  userProfile: UserProfile;
+  setUserProfile: (profile: UserProfile) => void;
+  activeUsers: ActiveUser[];
+  auditLogs: AuditLogEntry[];
+  refreshAuditLogs: () => void;
 }
 
 export default function SettingsView({
@@ -119,6 +133,12 @@ export default function SettingsView({
   isSyncing,
   checkAndSyncSharedFile,
   pushToSharedFileSync,
+
+  userProfile,
+  setUserProfile,
+  activeUsers,
+  auditLogs,
+  refreshAuditLogs,
 }: SettingsViewProps) {
 
   const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
@@ -176,6 +196,12 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
           <Database size={14} /> Ortak Senkronizasyon (15s)
         </button>
         <button
+          onClick={() => setSettingsTab("USERS")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "USERS" ? "bg-indigo-900 text-indigo-100 border border-indigo-500 shadow-[2px_2px_0px_0px_rgba(99,102,241,1)]" : "text-indigo-700 hover:text-indigo-950 font-bold"}`}
+        >
+          <Users size={14} className="text-indigo-500" /> Aktif Kullanıcılar & Audit Log
+        </button>
+        <button
           onClick={() => setSettingsTab("SECURITY")}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap cursor-pointer ${settingsTab === "SECURITY" ? "bg-emerald-900 text-emerald-100 border border-emerald-500 shadow-[2px_2px_0px_0px_rgba(16,185,129,1)]" : "text-emerald-700 hover:text-emerald-950 font-bold"}`}
         >
@@ -206,6 +232,180 @@ SONUÇ: Uygulama Kurumsal BT & Bilgi Güvenliği Standartlarına %100 Uygun Kapa
           <Database size={14} /> Veri ve Yedekleme
         </button>
       </div>
+
+      {/* USERS TAB - AKTİF KULLANICILAR VE SİSTEM DENETİM İZLERİ (AUDIT LOG) */}
+      {settingsTab === "USERS" && (
+        <div className="space-y-6 animate-fade-in">
+          {/* 1. KULLANICI PROFİLİM & KİMLİK BİLGİLERİ */}
+          <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-indigo-100 border-2 border-zinc-900 rounded-xl">
+                <User size={20} className="text-indigo-900" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-zinc-900 uppercase tracking-wide">Kullanıcı Kimliğim ve Profilim</h3>
+                <p className="text-xs text-zinc-500 font-medium">Sistemde yapılan değişikliklerde ve audit kaydında gözükecek isminiz</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">Ad Soyad / Sicil No</label>
+                <input
+                  type="text"
+                  value={userProfile.name}
+                  onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
+                  placeholder="Örn: Ahmet Yılmaz (THY12345)"
+                  className="w-full px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-sm font-bold text-zinc-900 focus:outline-none focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">Rol / Görev Unvanı</label>
+                <input
+                  type="text"
+                  value={userProfile.role}
+                  onChange={(e) => setUserProfile({ ...userProfile, role: e.target.value })}
+                  placeholder="Örn: Operasyon Sorumlusu"
+                  className="w-full px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-sm font-bold text-zinc-900 focus:outline-none focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase mb-1">İstasyon / Departman</label>
+                <input
+                  type="text"
+                  value={userProfile.station}
+                  onChange={(e) => setUserProfile({ ...userProfile, station: e.target.value })}
+                  placeholder="Örn: IST / OCC"
+                  className="w-full px-4 py-2.5 bg-zinc-50 border-2 border-zinc-900 rounded-xl text-sm font-bold text-zinc-900 focus:outline-none focus:bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CANLI AKTİF KULLANICILAR */}
+          <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 border-2 border-zinc-900 rounded-xl">
+                  <UserCheck size={20} className="text-emerald-900" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-zinc-900 uppercase tracking-wide">Şu An Aktif Olan Kullanıcılar</h3>
+                  <p className="text-xs text-zinc-500 font-medium">Ortak ağ dosyasını kullanan ve anlık oturumu açık olan ekip üyeleri (shgm_active_users.json)</p>
+                </div>
+              </div>
+              <span className="bg-emerald-100 text-emerald-900 border-2 border-zinc-900 px-3 py-1 rounded-xl text-xs font-black">
+                {activeUsers.length} Aktif Kullanıcı
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {activeUsers.length > 0 ? (
+                activeUsers.map((u) => {
+                  const isMe = u.id === userProfile.id;
+                  const diffSec = Math.floor((Date.now() - u.lastSeen) / 1000);
+                  return (
+                    <div
+                      key={u.id}
+                      className={`p-4 rounded-2xl border-2 border-zinc-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between ${
+                        isMe ? "bg-amber-50" : "bg-zinc-50"
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                          </span>
+                          <span className="font-bold text-sm text-zinc-900">{u.name}</span>
+                          {isMe && <span className="bg-zinc-900 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">Siz</span>}
+                        </div>
+                        <p className="text-xs text-zinc-600 font-medium">{u.role} ({u.hostname})</p>
+                        <p className="text-[11px] text-zinc-500 font-mono">Konum: {u.currentView === "OPERATIONS" ? "Operasyon Masası" : u.currentView}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-300 font-bold block">
+                          {diffSec < 10 ? "Şimdi" : `${diffSec}sn önce`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="col-span-3 text-center py-6 text-xs text-zinc-500 font-medium bg-zinc-50 rounded-2xl border border-dashed border-zinc-300">
+                  Şu an tek aktif kullanıcı siz görünüyorsunuz.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. SİSTEM DENETİM İZLERİ (AUDIT LOG FILE - shgm_activity_logs.json) */}
+          <div className="bg-white p-6 rounded-3xl border-2 border-zinc-900 shadow-[4px_4px_0px_0px_rgba(24,24,27,1)] space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 border-2 border-zinc-900 rounded-xl">
+                  <Activity size={20} className="text-purple-900" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-zinc-900 uppercase tracking-wide">Kullanıcı Değişiklik & İşlem Kayıtları (Audit Trail)</h3>
+                  <p className="text-xs text-zinc-500 font-medium">Ortak sunucuda shgm_activity_logs.json dosyasında saklanan tüm geçmiş işlemler</p>
+                </div>
+              </div>
+              <button
+                onClick={refreshAuditLogs}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border-2 border-zinc-900 rounded-xl text-xs font-bold transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+              >
+                <RefreshCw size={14} /> Yenile
+              </button>
+            </div>
+
+            <div className="overflow-x-auto border-2 border-zinc-900 rounded-2xl max-h-[400px]">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-zinc-900 text-white font-bold uppercase tracking-wider text-[11px] sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3">Zaman</th>
+                    <th className="px-4 py-3">Kullanıcı</th>
+                    <th className="px-4 py-3">İşlem Tipi</th>
+                    <th className="px-4 py-3">Referans / AFTN</th>
+                    <th className="px-4 py-3">Detaylar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 bg-white font-medium">
+                  {auditLogs.length > 0 ? (
+                    auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-zinc-50 transition">
+                        <td className="px-4 py-3 font-mono text-zinc-600 whitespace-nowrap">
+                          {new Date(log.timestamp).toLocaleString("tr-TR")}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-zinc-900 whitespace-nowrap">
+                          {log.userName}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="bg-zinc-100 border border-zinc-300 text-zinc-800 px-2 py-0.5 rounded font-bold font-mono text-[10px]">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-bold text-indigo-900">
+                          {log.flightRef || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-700">
+                          {log.details}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                        Henüz kaydedilmiş bir kullanıcı işlem izi (Audit Log) bulunmuyor.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SECURITY TAB (NEW - BILGI GUVENLIGI & BT UYUMU) */}
       {settingsTab === "SECURITY" && (

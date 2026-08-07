@@ -36,9 +36,11 @@ import {
   Loader,
   CreditCard,
   Filter,
+  User,
+  Users,
 } from "lucide-react";
 
-import { Flight, AppFees, StationEmails } from "./types";
+import { Flight, AppFees, StationEmails, UserProfile, ActiveUser, AuditLogEntry } from "./types";
 import {
   STORAGE_KEY,
   EMAILS_STORAGE_KEY,
@@ -146,6 +148,115 @@ export default function App() {
   const [feeYear, setFeeYear] = useState("2026");
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // DEFAULT_AVRASYA_PATH & sharedFilePath
+  const DEFAULT_AVRASYA_PATH = "\\\\Avrasya\\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\\MD_KARGO_TARIFE\\04_Slot\\Slot_Otomasyonlari\\SHGM_Takip\\shgmdata.json";
+
+  const [sharedFilePath, setSharedFilePath] = useState<string>(() => {
+    try {
+      return localStorage.getItem("shgm_shared_file_path") || DEFAULT_AVRASYA_PATH;
+    } catch {
+      return DEFAULT_AVRASYA_PATH;
+    }
+  });
+
+  // User Profile & Active Session State
+  const [userProfile, setUserProfileState] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem("shgm_user_profile");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const defaultId = "user_" + Math.random().toString(36).substr(2, 6);
+    return {
+      id: defaultId,
+      name: "Operatör (" + defaultId.slice(-4).toUpperCase() + ")",
+      role: "Operasyon Görevlisi",
+      station: "IST",
+      hostname: typeof window !== "undefined" && window.navigator ? window.navigator.platform : "PC"
+    };
+  });
+
+  const setUserProfile = useCallback((profile: UserProfile) => {
+    setUserProfileState(profile);
+    try {
+      localStorage.setItem("shgm_user_profile", JSON.stringify(profile));
+    } catch {}
+  }, []);
+
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+
+  // Log user action helper
+  const logUserAction = useCallback(async (action: string, details: string, flightRef?: string) => {
+    try {
+      await fetch("/api/audit/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: userProfile,
+          action,
+          details,
+          flightRef,
+          filePath: sharedFilePath
+        })
+      });
+    } catch (e) {
+      console.warn("Audit log error:", e);
+    }
+  }, [userProfile, sharedFilePath]);
+
+  // AUTO-DETECT COMPUTER OWNER / SYSTEM USER ON MOUNT
+  useEffect(() => {
+    const detectSystemUser = async () => {
+      try {
+        let sysInfo: any = null;
+        if (typeof window !== "undefined" && (window as any).electronAPI?.getSystemUserInfo) {
+          sysInfo = await (window as any).electronAPI.getSystemUserInfo();
+        } else {
+          const res = await fetch("/api/system/user-info");
+          if (res.ok) {
+            sysInfo = await res.json();
+          }
+        }
+
+        if (sysInfo && (sysInfo.displayName || sysInfo.username)) {
+          const osUser = sysInfo.displayName || sysInfo.username;
+          const host = sysInfo.hostname || "PC";
+
+          setUserProfileState((prev) => {
+            if (!prev || prev.name.startsWith("Operatör") || prev.name === "Operatör") {
+              const updatedProfile: UserProfile = {
+                id: "os_" + (sysInfo.username || "user").toLowerCase().replace(/[^a-z0-9]/g, ""),
+                name: osUser,
+                role: `Bilgisayar Sahibi (${host})`,
+                station: host || "IST",
+                hostname: host,
+              };
+              try {
+                localStorage.setItem("shgm_user_profile", JSON.stringify(updatedProfile));
+              } catch {}
+              return updatedProfile;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.warn("System user auto-detection warning:", err);
+      }
+    };
+
+    detectSystemUser();
+  }, []);
+
+  const refreshAuditLogs = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/audit/logs?filePath=${encodeURIComponent(sharedFilePath)}`);
+      const data = await res.json();
+      if (data && Array.isArray(data.logs)) {
+        setAuditLogs(data.logs);
+      }
+    } catch {}
+  }, [sharedFilePath]);
+
   // Filter States
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [destFilter, setDestFilter] = useState("ALL");
@@ -250,16 +361,6 @@ export default function App() {
   }, []);
 
   // --- SHARED FILE & ELECTRON 15S AUTO SYNC ENGINE ---
-  const DEFAULT_AVRASYA_PATH = "\\\\Avrasya\\THY_BSK_KARGO_GELIR_YONETIMI_VE_URETIM_PLANLAMA\\MD_KARGO_TARIFE\\04_Slot\\Slot_Otomasyonlari\\SHGM_Takip\\shgmdata.json";
-
-  const [sharedFilePath, setSharedFilePath] = useState<string>(() => {
-    try {
-      return localStorage.getItem("shgm_shared_file_path") || DEFAULT_AVRASYA_PATH;
-    } catch {
-      return DEFAULT_AVRASYA_PATH;
-    }
-  });
-
   const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("shgm_auto_sync_enabled");
@@ -281,6 +382,36 @@ export default function App() {
       setSyncToastMessage(null);
     }, 4500);
   }, []);
+
+  // --- MULTI-USER HEARTBEAT & AUDIT LOG SYNC EFFECT ---
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      try {
+        const res = await fetch("/api/presence/heartbeat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user: { ...userProfile, currentView },
+            clientAppPath: sharedFilePath
+          })
+        });
+        const data = await res.json();
+        if (data && Array.isArray(data.activeUsers)) {
+          setActiveUsers(data.activeUsers);
+        }
+      } catch {}
+    };
+
+    sendHeartbeat();
+    refreshAuditLogs();
+
+    const timer = setInterval(() => {
+      sendHeartbeat();
+      refreshAuditLogs();
+    }, 25000); // Poll presence & audit every 25s
+
+    return () => clearInterval(timer);
+  }, [userProfile, currentView, sharedFilePath, refreshAuditLogs]);
 
   const isSyncingInFlightRef = useRef(false);
 
@@ -340,6 +471,31 @@ export default function App() {
     [flights, stationEmails, appFees, sharedFilePath]
   );
 
+function areFlightsEqual(a: Flight[], b: Flight[]): boolean {
+  if (!a || !b) return a === b;
+  if (a.length !== b.length) return false;
+  
+  const extractCore = (list: Flight[]) =>
+    list.map((f) => ({
+      id: f.id,
+      status: f.status,
+      aftnNo: f.aftnNo || "",
+      appType: f.appType || "",
+      notes: f.notes || "",
+      updatedBy: f.updatedBy || "",
+      updatedAt: f.updatedAt || "",
+      isDg: !!f.isDg,
+      awbNo: f.awbNo || "",
+      std: f.std || "",
+      sta: f.sta || "",
+      date: f.date || "",
+      flNo: f.flNo || "",
+      dest: f.dest || ""
+    }));
+
+  return JSON.stringify(extractCore(a)) === JSON.stringify(extractCore(b));
+}
+
   const checkAndSyncSharedFile = useCallback(
     async (isManualTrigger = false) => {
       if (isSyncingInFlightRef.current) return;
@@ -384,18 +540,33 @@ export default function App() {
         const { flights: remoteFlights, stationEmails: remoteEmails, appFees: remoteFees } = parseFlightDataFromJSON(remoteData);
 
         if (remoteFlights && Array.isArray(remoteFlights) && remoteFlights.length > 0) {
-          if (resLastModified > lastServerModified || isManualTrigger || !isInitialReadDone) {
+          const hasContentChanged = !areFlightsEqual(flights, remoteFlights);
+
+          if (hasContentChanged || !isInitialReadDone) {
             setFlights(remoteFlights);
             if (remoteEmails) setStationEmails(remoteEmails);
             if (remoteFees) setAppFees(remoteFees);
 
             setLastServerModified(resLastModified);
             setLastSyncTime(new Date());
-            addBackupLog("AUTO", "SUCCESS", `Ortak dosyadan ${remoteFlights.length} uçuş senkronize edildi (1 Dk Otomatik Kontrol).`);
-            if (!isManualTrigger) {
-              showSyncToast("1 Dk Otomatik Kontrol: Ortak sunucu dosyasından yeni değişiklikler alındı.");
-            } else {
-              showSyncToast("Ortak dosya başarıyla senkronize edildi.");
+
+            if (hasContentChanged && isInitialReadDone) {
+              addBackupLog("AUTO", "SUCCESS", `Ortak dosyada yeni değişiklikler tespit edildi ve güncellendi.`);
+              if (!isManualTrigger) {
+                showSyncToast("Ortak sunucu dosyasında yeni değişiklikler tespit edildi.");
+              } else {
+                showSyncToast("Ortak dosya senkronize edildi (Yeni değişiklikler alındı).");
+              }
+            } else if (isManualTrigger) {
+              showSyncToast("Ortak dosya verileri güncellendi.");
+            }
+          } else {
+            // NO CHANGES DETECTED — SILENT BACKGROUND SYNC (No toast notification!)
+            setLastServerModified(resLastModified);
+            setLastSyncTime(new Date());
+
+            if (isManualTrigger) {
+              showSyncToast("Ortak dosya güncel (Herhangi bir yeni değişiklik bulunmuyor).");
             }
           }
         }
@@ -425,7 +596,7 @@ export default function App() {
     }
   }, [autoSyncEnabled]);
 
-  // 1-minute (60 seconds) polling timer
+  // Fast & silent 15-second background sync polling timer
   useEffect(() => {
     if (!autoSyncEnabled || !isLoaded) return;
 
@@ -435,7 +606,7 @@ export default function App() {
 
     const syncInterval = setInterval(() => {
       checkAndSyncSharedFile(false);
-    }, 60000);
+    }, 15000);
 
     return () => {
       clearTimeout(initialTimer);
@@ -698,6 +869,8 @@ export default function App() {
   const updateStatusGroupOrSingle = (flightOrGroup: any, newStatusKey: string, extraData = {}) => {
     const isGroup = !!flightOrGroup.flights;
     const idsToUpdate = isGroup ? flightOrGroup.flights.map((f: any) => f.id) : [flightOrGroup.id];
+    const refCode = flightOrGroup.aftnNo || (flightOrGroup.flights ? flightOrGroup.flights[0]?.flNo : flightOrGroup.flNo) || "";
+
     setFlights((prev) =>
       prev.map((f) => {
         if (idsToUpdate.includes(f.id)) {
@@ -705,12 +878,16 @@ export default function App() {
             ...f,
             status: newStatusKey as any,
             timestamps: { ...(f.timestamps || {}), [newStatusKey]: Date.now() },
+            updatedBy: userProfile.name,
+            updatedAt: new Date().toISOString(),
             ...extraData,
           };
         }
         return f;
       })
     );
+
+    logUserAction("STATUS_CHANGE", `Durum güncellendi: ${newStatusKey}`, refCode);
   };
 
   const handleStatusClick = (flightOrGroup: any, targetStatusKey: string) => {
@@ -855,20 +1032,26 @@ export default function App() {
     }
     const isGroup = !!selectedFlightForAftn.flights;
     const idsToUpdate = isGroup ? selectedFlightForAftn.flights.map((f: any) => f.id) : [selectedFlightForAftn.id];
+    const formattedAftn = String(aftnInput).trim().toUpperCase();
+
     setFlights((prev) =>
       prev.map((f) => {
         if (idsToUpdate.includes(f.id)) {
           return {
             ...f,
             status: "APP_MADE",
-            aftnNo: String(aftnInput).trim().toUpperCase(),
+            aftnNo: formattedAftn,
             appType: aftnAppType,
+            updatedBy: userProfile.name,
+            updatedAt: new Date().toISOString(),
             timestamps: { ...(f.timestamps || {}), APP_MADE: Date.now() },
           };
         }
         return f;
       })
     );
+
+    logUserAction("AFTN_ENTERED", `AFTN / Başvuru No girildi: ${formattedAftn}`, formattedAftn);
     setIsAftnModalOpen(false);
   };
 
@@ -912,6 +1095,7 @@ export default function App() {
     } else {
       if (!newFlight.flNo || !newFlight.date || !newFlight.dest) return;
       const isSpecialDest = SPECIAL_DESTINATIONS.includes(String(newFlight.dest).toUpperCase());
+      const flightNoStr = `${String(newFlight.al || "TK").toUpperCase()}${String(newFlight.flNo).toUpperCase()}`;
       setFlights((prev) => [
         ...prev,
         {
@@ -931,8 +1115,13 @@ export default function App() {
           isDg: isSpecialDest ? newFlight.isDg : false,
           timestamps: {},
           notes: newFlight.notes || "",
+          createdBy: userProfile.name,
+          createdAt: new Date().toISOString(),
+          updatedBy: userProfile.name,
+          updatedAt: new Date().toISOString(),
         },
       ]);
+      logUserAction("FLIGHT_ADD", `Yeni uçuş ekledi: ${flightNoStr} (${newFlight.dest})`, flightNoStr);
       setNewFlight({ al: "TK", flNo: "", date: "", orig: "IST", dest: "", std: "", sta: "", awbNo: "", isDg: false, notes: "" });
     }
   };
@@ -1788,6 +1977,26 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            {/* Active User Badge */}
+            <button
+              onClick={() => {
+                setCurrentView("SETTINGS");
+                setSettingsTab("USERS");
+              }}
+              className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 border-2 border-zinc-900 px-3 py-1.5 rounded-xl transition shadow-[2px_2px_0px_0px_rgba(24,24,27,1)] cursor-pointer"
+              title="Kullanıcı Profili ve Aktif Oturumlar"
+            >
+              <User size={14} className="text-indigo-900 font-bold" />
+              <div className="text-left hidden lg:block">
+                <span className="block text-xs font-black text-indigo-950 leading-none">{userProfile.name}</span>
+                <span className="block text-[9px] font-bold font-mono text-indigo-700 leading-none mt-0.5">{userProfile.station} • {activeUsers.length} Aktif</span>
+              </div>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            </button>
           </div>
           <div className="md:hidden flex bg-zinc-100 p-1 rounded-lg border-2 border-zinc-900">
             <button
@@ -2309,11 +2518,26 @@ export default function App() {
                           )}
                         </div>
                         
-                        {/* NOTES FIELD DISPLAY (Recommendation 4) */}
+                        {/* NOTES FIELD DISPLAY */}
                         {group.flights && group.flights.some((f: any) => f.notes) && (
                           <div className="mt-3 p-2.5 bg-blue-50/50 border border-blue-200/60 rounded-xl text-[11px] text-zinc-650 font-medium">
                             <span className="font-bold text-zinc-700 block mb-0.5 text-[9px] uppercase tracking-wider">Takip Notu:</span>
                             {group.flights.find((f: any) => f.notes)?.notes}
+                          </div>
+                        )}
+
+                        {/* LAST UPDATED BY USER BADGE */}
+                        {group.flights && group.flights[0]?.updatedBy && (
+                          <div className="mt-2.5 pt-2 border-t border-dashed border-zinc-200 flex items-center justify-between text-[10px] text-zinc-500 font-medium">
+                            <span className="flex items-center gap-1 font-mono truncate max-w-[180px]">
+                              <User size={11} className="text-indigo-600 shrink-0" />
+                              <span className="font-bold text-zinc-700">{group.flights[0].updatedBy}</span>
+                            </span>
+                            {group.flights[0].updatedAt && (
+                              <span className="font-mono text-[9px] text-zinc-400">
+                                {new Date(group.flights[0].updatedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
                           </div>
                         )}
 
@@ -2453,6 +2677,11 @@ export default function App() {
             isSyncing={isSyncing}
             checkAndSyncSharedFile={checkAndSyncSharedFile}
             pushToSharedFileSync={pushToSharedFileSync}
+            userProfile={userProfile}
+            setUserProfile={setUserProfile}
+            activeUsers={activeUsers}
+            auditLogs={auditLogs}
+            refreshAuditLogs={refreshAuditLogs}
           />
         )}
       </main>
